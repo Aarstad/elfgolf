@@ -31,7 +31,9 @@ shaves a byte somewhere, the assert says whether it was actually possible.
 
 ## Layout
 
-- `hello112` — the artifact, 112 bytes, runs on Android/bionic and on Linux
+- `hello112` — the artifact, 112 bytes, verified running under Termux on
+  Android 16 (it is static and uses raw syscalls, so any aarch64 Linux should
+  take it, but that is untested)
 - `floor.py` — the final builder, written to prove the floor
 - `src/` — the working builders in order: `golf.py` → `golf4.py`, then
   `final.py`; `vaddr.py` for the address/string coincidence, `hello.s` for the
