@@ -1,0 +1,8 @@
+# Bracket the first occurrence of 101 and stop.
+#
+#   rw progs/first.rw '00101101'   ->   00[101]101
+#
+# The right-hand side contains the left-hand side, so as an ordinary rule this
+# never stops: it would bracket its own brackets until the tape overflowed.
+# The terminal dot is what makes it halt after one rewrite.
+101->.[101]

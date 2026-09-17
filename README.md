@@ -50,6 +50,19 @@ in aarch64 assembly: no libc, no stack, no allocation. Rules are `lhs->rhs`,
 one per line; it rewrites the leftmost match of the first matching rule and
 restarts, halting when nothing matches.
 
+A rule written `lhs->.rhs` is *terminal*: it rewrites once and stops, whether
+or not anything still matches. That is Markov's own notation, and it buys the
+one thing rule order cannot. `first.rw` is the whole argument in a single rule:
+
+```
+101->.[101]        # rw progs/first.rw '00101101'  ->  00[101]101
+```
+
+The right-hand side contains the left-hand side, so without the dot the rule
+brackets its own brackets until the tape overflows. Terminal rules add no
+computational power — they add the ability to stop while the tape still
+matches, which is what "the first occurrence" needs.
+
 Two front ends. `rw` is an interpreter — it reads a `.rw` rule file and takes
 the tape as an argument or on stdin:
 
@@ -77,6 +90,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `tm` | a Turing machine: the 3-state busy beaver |
 | `collatz` | the Collatz map in unary, iterated to 1 |
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
+| `first` | brackets the first `101` and stops — one terminal rule |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -153,6 +167,9 @@ mk/rw mk/progs/rule110.rw "!$(printf '0%.0s' $(seq 47))1>$(printf '#%.0s' $(seq 
                         ## # ######  ##      ###
                        #######    # ###     ## #
 ```
+
+`tm.rw` deliberately does *not* use a terminal rule: its halt state is
+expressed by no rule mentioning `H`, which is the point of that demo.
 
 `mk/test.sh` runs every rule file against a known answer, including that
 overflow. The Rule 110 cases were checked against an independent

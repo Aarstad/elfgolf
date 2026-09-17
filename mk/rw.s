@@ -1,6 +1,8 @@
 // rw - aarch64 interpreter for a rewriting language. no libc, no stack frames.
 //   usage: rw PROG.rw [INPUT]        (INPUT omitted -> read stdin)
 //   PROG:  one rule per line, "lhs->rhs"; lines starting with '#' ignored
+//   term:  "lhs->.rhs" is a terminal rule -- it rewrites once and halts,
+//          whether or not anything still matches
 //   run:   scan rules top-down; first rule whose lhs occurs in the tape
 //          rewrites its leftmost occurrence, then scanning restarts.
 
@@ -106,8 +108,16 @@ _start:
         cbz     x23, .Lnext
         add     x24, x11, #2              // rhs
         sub     x25, x10, x24             // rlen
+        mov     x13, #0                   // terminal rule?
+        cbz     x25, .Lscan
+        ldrb    w9, [x24]
+        cmp     w9, #46                   // "->." rewrites once, then halts
+        b.ne    .Lscan
+        mov     x13, #1
+        add     x24, x24, #1              // the dot is syntax, not output
+        sub     x25, x25, #1
 
-        mov     x2, #0
+.Lscan: mov     x2, #0
 .Lsrch: add     x3, x2, x23
         cmp     x3, x20
         b.hi    .Lnext
@@ -162,12 +172,15 @@ _start:
 
 .Lput:  mov     x9, #0
 .Lcr:   cmp     x9, x25
-        b.eq    .Lrestart
+        b.eq    .Lfin
         ldrb    w6, [x24, x9]
         add     x11, x2, x9
         strb    w6, [x19, x11]
         add     x9, x9, #1
         b       .Lcr
+
+.Lfin:  cbz     x13, .Lrestart            // ordinary rule: rescan from the top
+        b       .Ldone                    // terminal rule: stop, however the tape looks
 
 .Ldone: mov     x26, #0
         b       .Lemit

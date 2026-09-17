@@ -1,5 +1,5 @@
 // aarch64 Markov-style rewriter. no libc, no stack, no allocation.
-//   source: one rule per line, "lhs->rhs"
+//   source: one rule per line, "lhs->rhs"; "lhs->.rhs" rewrites once and halts
 //   run:    scan rules top-down; first rule whose lhs occurs in the tape
 //           rewrites its leftmost occurrence, then scanning restarts.
 //           halt when no rule matches.
@@ -47,8 +47,16 @@ _start:
         cbz     x23, .Lnext               // empty lhs would never terminate
         add     x24, x11, #2              // rhs
         sub     x25, x10, x24             // rlen
+        mov     x13, #0                   // terminal rule?
+        cbz     x25, .Lscan
+        ldrb    w9, [x24]
+        cmp     w9, #46                   // "->." rewrites once, then halts
+        b.ne    .Lscan
+        mov     x13, #1
+        add     x24, x24, #1              // the dot is syntax, not output
+        sub     x25, x25, #1
 
-        mov     x2, #0                    // search tape for lhs
+.Lscan: mov     x2, #0                    // search tape for lhs
 .Lsrch: add     x3, x2, x23
         cmp     x3, x20
         b.hi    .Lnext
@@ -97,12 +105,15 @@ _start:
 
 .Lput:  mov     x9, #0                    // write rhs into the gap
 .Lcr:   cmp     x9, x25
-        b.eq    .Lrestart
+        b.eq    .Lfin
         ldrb    w6, [x24, x9]
         add     x11, x2, x9
         strb    w6, [x19, x11]
         add     x9, x9, #1
         b       .Lcr
+
+.Lfin:  cbz     x13, .Lrestart            // ordinary rule: rescan from the top
+        b       .Ldone                    // terminal rule: stop, however the tape looks
 
 .Ldone: mov     x0, #1
         mov     x1, x19

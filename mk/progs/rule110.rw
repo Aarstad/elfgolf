@@ -69,8 +69,8 @@ K.->V
 1V->V1
 /V->V/
 [V->/V
-<V/->
-<V->
+<V/->.
+<V->.
 
 # next generation. Below the V rules, or cleanup would start a fresh sweep.
 [0->/P0

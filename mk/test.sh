@@ -15,6 +15,19 @@ check() { # check NAME PROG INPUT EXPECTED
 
 u() { printf '1%.0s' $(seq "$1"); }   # n in unary
 
+
+tmp=$(mktemp) || exit 1; trap 'rm -f "$tmp"' EXIT
+rule() { # rule NAME INPUT EXPECTED RULE...
+  local name=$1 input=$2 want=$3; shift 3
+  printf '%s\n' "$@" > "$tmp"
+  local got; got=$(./rw "$tmp" "$input" 2>&1)
+  if [ "$got" = "$want" ]; then
+    pass=$((pass+1)); printf 'ok   %-18s %s\n' "$name" "$input"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s want %s got %s\n' "$name" "$want" "$got"
+  fi
+}
+
 check add        add.rw     '111+11'   '11111'
 check add/zero   add.rw     '+111'     '111'
 check inc        inc.rw     '1011|'    '1100'
@@ -38,6 +51,26 @@ check r110/pair    rule110.rw '!010>###'        '010/110/110/110'
 # wide case with a lot of travellers in flight is the one that would catch it
 check r110/wide    rule110.rw "!$(printf '0%.0s' $(seq 15))1>########" \
   '0000000000000001/0000000000000011/0000000000000111/0000000000001101/0000000000011111/0000000000110001/0000000001110011/0000000011010111/0000000111111101'
+
+check first/hit    first.rw   '00101101'  '00[101]101'
+check first/miss   first.rw   '000'       '000'
+
+# terminal rules: "->." rewrites once and stops, even with the tape still
+# matching. Each pair below is the same rule, one dot apart.
+rule term/once      'aaa' 'Xaa'    'a->.X'
+rule term/ordinary  'aaa' 'XXX'    'a->X'
+rule term/empty-rhs 'aaa' 'aa'     'a->.'
+rule term/grow      'ab'  'aZZZ'   'b->.ZZZ'
+rule term/dot-out   'ab'  'a.'     'b->..'
+rule term/outranked 'ab'  'cSTOP'  'a->c' 'b->.STOP'
+# first.rw's rule contains its own lhs: strip the dot and it eats the tape
+printf '101->[101]\n' > "$tmp"
+got=$(./rw "$tmp" '00101101' 2>&1 >/dev/null); rc=$?
+if [ "$got" = "rw: tape overflow" ] && [ "$rc" -eq 3 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "term/selfmatch" "runs away without the dot"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "term/selfmatch" "$rc" "$got"
+fi
 
 # 27 peaks at 9232, past the 4096-byte tape. The limit is real, so assert it:
 # rw must report overflow and exit 3 rather than quietly truncating.

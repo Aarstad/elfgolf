@@ -10,8 +10,8 @@
 #   G    return walk, turning the bs back into 1s
 #   T    tripling walk (odd): each a becomes 111, then <T adds the +1
 
-# reached 1: drop every marker and nothing matches any more
-<P1.->1.
+# reached 1: say so and stop
+<P1.->.1.
 
 # first move only: no bare 1 ever sits next to < again until we are done
 <1-><P1
