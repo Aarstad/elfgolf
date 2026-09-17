@@ -55,6 +55,18 @@ check r110/wide    rule110.rw "!$(printf '0%.0s' $(seq 15))1>########" \
 check first/hit    first.rw   '00101101'  '00[101]101'
 check first/miss   first.rw   '000'       '000'
 
+check binadd/ex     binadd.rw  '<1011+110>'  '10001'
+check binadd/zero   binadd.rw  '<0+0>'       '0'
+check binadd/carry  binadd.rw  '<1+1>'       '10'
+check binadd/ripple binadd.rw  '<1111+1>'    '10000'
+check binadd/left   binadd.rw  '<110+1>'     '111'
+check binadd/right  binadd.rw  '<1+110>'     '111'
+check binadd/empty  binadd.rw  '<+1>'        '1'
+# leading zeros go in but do not come out, and the answer still has to be
+# right when the carry ripples the whole way
+check binadd/lead   binadd.rw  '<010+001>'   '11'
+check binadd/wide   binadd.rw  '<1111111111111111+1>' '10000000000000000'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

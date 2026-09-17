@@ -92,6 +92,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
+| `binadd` | binary addition, a column at a time, carry and all |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -168,6 +169,25 @@ mk/rw mk/progs/rule110.rw "!$(printf '0%.0s' $(seq 47))1>$(printf '#%.0s' $(seq 
                         ## # ######  ##      ###
                        #######    # ###     ## #
 ```
+
+`binadd.rw` gets its answer ordering out of the layout. Addition wants to
+start at the least significant end, but the two operands end in different
+places — one before the `+`, one before the `>` — so each column is run by
+turning the last bit of the right operand into a traveller and walking it left
+to the carry marker, which sits where the `+` was and holds the carry in its
+own identity: `P` for none, `Q` for one.
+
+That marker is also where the answer is built, and each result bit is
+deposited immediately to its right. Since columns arrive least significant
+first, every new bit lands to the left of the one before it — so the answer
+comes out most significant first without anything being reversed.
+
+```sh
+mk/rw mk/progs/binadd.rw '<1011+110>'   # 10001
+```
+
+Checked against every pair of operands up to 63, and it is only the tape that
+limits the width: two 200-bit numbers add fine.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
