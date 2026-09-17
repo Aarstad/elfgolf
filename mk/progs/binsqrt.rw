@@ -1,0 +1,143 @@
+# Integer square root, digit by digit. Answers root, then r, then remainder.
+#
+#   rw progs/binsqrt.rw '<1001>'   ->   11r0      (sqrt 9 = 3, nothing over)
+#   rw progs/binsqrt.rw '<1010>'   ->   11r1      (sqrt 10 = 3, 1 over)
+#
+# Same shape as bindiv.rw -- compare, then subtract if it fits -- but what you
+# compare against is different every step. Taking two bits of the input at a
+# time, the trial value is root*4+1 and the root gains a bit each round, so
+# the thing being subtracted grows as the answer does.
+#
+# The identity that makes it tractable: root*4+1 written in binary is just the
+# root's bits followed by 01. So the trial value and the root are the same
+# region of tape, and a round updates it by inserting the new root bit in
+# front of that trailing 01 -- one rule, no arithmetic:
+#
+#   fits    01^m -> 101^        root gains a 1
+#   misses  01^n -> 001^        root gains a 0
+#
+# At the end the root is that region with its trailing 01 taken off again.
+#
+#   [ root 01 ^ | remainder = $ input >
+#
+# Pairs are counted from the low end, so an input of odd length needs a
+# leading 0 first. e and o walk it to find out which, and p carries the pad
+# back if it was odd.
+
+# bootstrap: < is consumed, so this fires exactly once. The trial starts at
+# 01, which is a root of nothing and a trial value of 1.
+<->[01^|=$e
+
+# is the input an odd number of bits? e means even so far, o means odd
+e0->0o
+e1->1o
+o0->0e
+o1->1e
+e>->>
+o>->p>
+0p->p0
+1p->p1
+$p->$0
+
+# a traveller on its way right, one at a time
+T0->0T
+T1->1T
+T|->|T
+U0->0U
+U1->1U
+U|->|U
+
+# compare column: the digit is written back unchanged
+0T%->%0
+1T%->%1
+0U%->&0
+1U%->%1
+0T&->&0
+1T&->%1
+0U&->&0
+1U&->&1
+|T%->|%
+|U%->|&
+|T&->|&
+|U&->|&
+
+# subtract column: same arithmetic, digit replaced
+0T:->:0
+1T:->:1
+0U:->!1
+1U:->:0
+0T!->!1
+1T!->:0
+0U!->!0
+1U!->!1
+|T:->|:
+|U:->|!
+|T!->|!
+|U!->|!
+
+# @ walks the trial value leftwards, putting each bit back as it goes
+0@->@0T
+1@->@1U
+[@->[H
+
+# trial value spent: ripple the last borrow through the rest of the remainder
+0&->&0
+1&->%1
+|&->|l
+0!->!1
+1!->:0
+|!->|:
+
+# the trial pointer walks home
+H0->0H
+H1->1H
+H|->^|
+
+# F goes back to wake it for a pass
+0F->F0
+1F->F1
+|F->F|
+^F->@
+
+# n and m carry the decided root bit back, and the root grows in place
+0n->n0
+1n->n1
+|n->n|
+01^n->001^
+0m->m0
+1m->m1
+|m->m|
+01^m->101^
+
+# it did not fit: park idle, the root gains a 0
+l0->0l
+l1->1l
+l$->n=$
+
+# it did fit and has been subtracted: park idle, the root gains a 1
+:0->0:
+:1->1:
+:$->m=$
+
+# it did fit: park in subtract mode and run the walk again
+%0->0%
+%1->1%
+%$->F:$
+
+# next two input bits. Last, as always.
+=$00->F00%$
+=$01->F01%$
+=$10->F10%$
+=$11->F11%$
+
+# input spent: take the trailing 01 back off the root and tidy up. This has
+# to consume the ^ as it fires -- a root that itself ends in 01 would match
+# the rule a second time, and the root would be eaten a pair of bits at a time.
+01^->R
+[00->[0
+[01->[1
+[->
+|00->|0
+|01->|1
+R|->r
+=$>->

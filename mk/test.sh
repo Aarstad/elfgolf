@@ -96,6 +96,20 @@ check bindiv/wide   bindiv.rw  '<1111)11111111>' '10001r0'
 # dividing by zero is nonsense, but it has to halt rather than spin
 check bindiv/byzero bindiv.rw  '<0)1011>'    '1111r1011'
 
+check sqrt/nine    binsqrt.rw '<1001>'      '11r0'
+check sqrt/ten     binsqrt.rw '<1010>'      '11r1'
+check sqrt/zero    binsqrt.rw '<0>'         '0r0'
+check sqrt/one     binsqrt.rw '<1>'         '1r0'
+check sqrt/two     binsqrt.rw '<10>'        '1r1'
+check sqrt/four    binsqrt.rw '<100>'       '10r0'
+check sqrt/255     binsqrt.rw '<11111111>'  '1111r11110'
+# odd-length input needs a leading 0 so the pairs line up from the low end
+check sqrt/oddlen  binsqrt.rw '<11001>'     '101r0'
+check sqrt/padded  binsqrt.rw '<0000011001>' '101r0'
+# a root that itself ends in 01: the rule stripping the trailing 01 off the
+# trial value used to match a second time and eat the root two bits at a time
+check sqrt/endsin01 binsqrt.rw '<10101010>' '1101r1'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

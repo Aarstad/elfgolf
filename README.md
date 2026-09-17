@@ -95,6 +95,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `binadd` | binary addition, a column at a time, carry and all |
 | `binmul` | binary multiplication, by shift and add |
 | `bindiv` | binary long division, quotient and remainder |
+| `binsqrt` | integer square root, digit by digit |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -266,6 +267,32 @@ Checked against every dividend and divisor up to 63, quotient and remainder
 both. Dividing by zero is nonsense — the quotient comes out all ones — but it
 halts rather than spinning. The ceiling is the fuel again: a 96-bit dividend
 divides, 128 gives up.
+
+`binsqrt.rw` is `bindiv.rw`'s shape — compare, subtract if it fits — but the
+thing being compared against changes every round. Taking two input bits at a
+time, the trial value is `root*4+1`, and the root gains a bit each round, so
+the subtrahend grows as the answer does.
+
+The identity that makes it tractable: `root*4+1` in binary is just the root's
+bits followed by `01`. So the trial value and the root are *the same region of
+tape*, and a round updates it by inserting the new root bit in front of that
+trailing `01` — one rule, no arithmetic:
+
+```
+01^m->101^     it fit:     the root gains a 1
+01^n->001^     it missed:  the root gains a 0
+```
+
+At the end the root is that region with its trailing `01` taken off again.
+Pairs count from the low end, so an odd-length input needs a leading zero
+first; `e` and `o` walk it to find out which, and `p` carries the pad back.
+
+```sh
+mk/rw mk/progs/binsqrt.rw '<1010>'   # 11r1 — sqrt 10 is 3, with 1 over
+```
+
+Checked against every input below 4096 and random ones up to 40 bits, root and
+remainder both. A 160-bit input still roots; 224 runs out of fuel.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
