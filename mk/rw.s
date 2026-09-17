@@ -1,5 +1,6 @@
 // rw - aarch64 interpreter for a rewriting language. no libc, no stack frames.
-//   usage: rw PROG.rw [INPUT]        (INPUT omitted -> read stdin)
+//   usage: rw [-v] PROG.rw [INPUT]   (INPUT omitted -> read stdin)
+//   -v:    trace every rewrite to stderr as "rule<TAB>resulting tape"
 //   PROG:  one rule per line, "lhs->rhs"; lines starting with '#' ignored
 //   term:  "lhs->.rhs" is a terminal rule -- it rewrites once and halts,
 //          whether or not anything still matches
@@ -28,10 +29,28 @@ _start:
         adrp    x22, src
         add     x22, x22, :lo12:src
 
+        mov     x14, #0                   // tracing?
+        mov     x15, #16                  // byte offset of the program argument
+
         cmp     x28, #2
         b.lt    .Lusage
+        ldr     x9, [sp, #16]             // is argv[1] exactly "-v"?
+        ldrb    w10, [x9]
+        cmp     w10, #45                  // '-'
+        b.ne    .Largs
+        ldrb    w10, [x9, #1]
+        cmp     w10, #118                 // 'v'
+        b.ne    .Largs
+        ldrb    w10, [x9, #2]
+        cbnz    w10, .Largs
+        mov     x14, #1
+        mov     x15, #24                  // the rest shifts along by one
+        sub     x28, x28, #1
 
-        ldr     x1, [sp, #16]             // argv[1]
+.Largs: cmp     x28, #2
+        b.lt    .Lusage
+        add     x9, sp, x15
+        ldr     x1, [x9]                  // program path
         mov     x0, #AT_FDCWD
         mov     x2, #O_RDONLY
         mov     x3, #0
@@ -48,7 +67,8 @@ _start:
 
         cmp     x28, #3
         b.lt    .Lstdin
-        ldr     x9, [sp, #24]             // argv[2] -> tape
+        add     x9, sp, x15
+        ldr     x9, [x9, #8]              // INPUT -> tape
         mov     x10, #0
         mov     x12, #TAPEMAX
 .Lcp:   cmp     x10, x12
@@ -108,6 +128,7 @@ _start:
 
 .Lgot:  sub     x23, x11, x21             // llen
         cbz     x23, .Lnext
+        mov     x16, x10                  // line end, for -v: the splice eats x10
         add     x24, x11, #2              // rhs
         sub     x25, x10, x24             // rlen
         mov     x13, #0                   // terminal rule?
@@ -183,8 +204,36 @@ _start:
         add     x9, x9, #1
         b       .Lcr
 
-.Lfin:  cbz     x13, .Lrestart            // ordinary rule: rescan from the top
+.Lfin:  cbnz    x14, .Ltrace
+.Lfin2: cbz     x13, .Lrestart            // ordinary rule: rescan from the top
         b       .Ldone                    // terminal rule: stop, however the tape looks
+
+// -- phase: trace one rewrite to stderr (-v)
+.Ltrace:                                  // the rule that fired ...
+        mov     x0, #2
+        mov     x1, x21
+        sub     x2, x16, x21
+        mov     x8, #SYS_write
+        svc     #0
+        mov     x0, #2                    // ... a tab ...
+        adrp    x1, msg_tab
+        add     x1, x1, :lo12:msg_tab
+        mov     x2, #1
+        mov     x8, #SYS_write
+        svc     #0
+        mov     x0, #2                    // ... and what the tape became
+        mov     x1, x19
+        mov     x2, x20
+        mov     x8, #SYS_write
+        svc     #0
+        mov     x0, #2
+        adrp    x1, msg_tab
+        add     x1, x1, :lo12:msg_tab
+        add     x1, x1, #1
+        mov     x2, #1
+        mov     x8, #SYS_write
+        svc     #0
+        b       .Lfin2
 
 // -- phase: emit, fuel, overflow, usage, exit
 .Ldone: mov     x26, #0
@@ -228,7 +277,8 @@ _start:
         svc     #0
 
         .section .rodata
-msg_use: .ascii "usage: rw PROG.rw [INPUT]\n"
+msg_tab: .ascii "\t\n"                    // a tab, then a newline
+msg_use: .ascii "usage: rw [-v] PROG.rw [INPUT]\n"
         .set    msg_use_len, . - msg_use
 msg_err: .ascii "rw: cannot read program\n"
         .set    msg_err_len, . - msg_err

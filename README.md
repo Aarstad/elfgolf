@@ -190,6 +190,23 @@ mk/rw mk/progs/binadd.rw '<1011+110>'   # 10001
 Checked against every pair of operands up to 63, and it is only the tape that
 limits the width: two 200-bit numbers add fine.
 
+`rw -v` traces every rewrite to stderr as the rule that fired and the tape it
+produced, which is how you find a program that stalls rather than fails:
+
+```
+$ mk/rw -v mk/progs/palin.rw '<abb>'
+<a-><A	<Abb>
+Ab->bA	<bAb>
+Ab->bA	<bbA>
+bA>->W	<bW
+bW->W	<W
+<W->.no	no
+no
+```
+
+Only the last line is on stdout, so a trace can be watched while the answer is
+still piped somewhere.
+
 `binmul.rw` puts an adder inside a loop. For each bit of the multiplier, from
 the top, double the accumulator and — if the bit was 1 — add the multiplicand
 in. Doubling is free, since it is just appending a 0, so all the work is in
@@ -236,22 +253,23 @@ expressed by no rule mentioning `H`, which is the point of that demo.
 
 ### The interpreter, by the instruction
 
-`rw` is 182 aarch64 instructions in 2456 bytes, static, with no libc — no
+`rw` is 226 aarch64 instructions in 2672 bytes, static, with no libc — no
 `INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
 
 | | |
 |---:|---|
-|  49 | read argv, open the program, load the tape |
-|  37 | parse a rule: line, comment, arrow, terminal dot |
+|  67 | read argv, open the program, load the tape |
+|  38 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
-|  39 | splice: shift the tape, write the rhs |
+|  40 | splice: shift the tape, write the rhs |
+|  24 | trace one rewrite to stderr (-v) |
 |  37 | emit, fuel, overflow, usage, exit |
-| **182** | **total** |
+| **226** | **total** |
 
-The lopsided figure is the search: twenty instructions are the whole matching
-engine. The splice is where the real work is, because it has to grow or shrink
-the tape in place and so copies in both directions depending on which way the
-rule changes the length.
+The lopsided figure is still the search: twenty instructions are the whole
+matching engine. The splice is where the real work is, because it has to grow
+or shrink the tape in place and so copies in both directions depending on
+which way the rule changes the length.
 
 None of that is a compiler. `rw` parses its rules at runtime, so those 37
 instructions are a `->` finder, not a front end — `build.sh` is the compiler,

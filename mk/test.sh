@@ -119,6 +119,26 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "collatz/27-ovf" "$rc" "$got"
 fi
 
+# -v traces each rewrite to stderr as "rule<TAB>tape", and leaves stdout alone
+out=$(./rw -v progs/palin.rw '<abb>' 2>/dev/null)
+trc=$(./rw -v progs/palin.rw '<abb>' 2>&1 >/dev/null)
+quiet=$(./rw progs/palin.rw '<abb>' 2>&1 >/dev/null | wc -c | tr -d ' ')
+lines=$(printf '%s\n' "$trc" | wc -l | tr -d ' ')
+last=$(printf '%s\n' "$trc" | tail -1)
+if [ "$out" = "no" ] && [ "$quiet" = "0" ] && [ "$lines" = "6" ] && [ "$last" = "$(printf '<W->.no\tno')" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s rewrites traced, stdout clean\n' "trace/palin" "$lines"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s out=%s quiet=%s lines=%s last=%s\n' "trace/palin" "$out" "$quiet" "$lines" "$last"
+fi
+
+# the flag must not disturb argument handling either way
+rule trace/stdin-off 'aaa' 'Xaa' 'a->.X'
+if [ "$(printf '<abba>\n' | ./rw -v progs/palin.rw 2>/dev/null)" = "yes" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s reads stdin with -v\n' "trace/stdin"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s -v broke the stdin path\n' "trace/stdin"
+fi
+
 # The README quotes rw's instruction count, its size, and a per-phase
 # breakdown. Derive all three from the binary and the source rather than
 # trusting them. The phase boundaries are marked in rw.s itself
