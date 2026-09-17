@@ -1,0 +1,9 @@
+# unary multiply: aa*bbb -> cccccc
+# peel one a, walk the b-block emitting a c per b, restore, repeat
+!b->Bc!
+!c->c!
+!->
+B->b
+a*->*!
+*->
+b->

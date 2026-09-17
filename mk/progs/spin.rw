@@ -1,0 +1,3 @@
+# oscillates forever, never grows
+ab->ba
+ba->ab

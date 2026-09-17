@@ -1,0 +1,4 @@
+# binary increment. append | to the number as a carry marker
+0|->1
+1|->|0
+|->1

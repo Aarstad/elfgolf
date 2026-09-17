@@ -1,0 +1,4 @@
+# unary addition: 111+11 -> 11111
+# slide the + rightwards past every 1, then delete it
+1+->+1
++->
