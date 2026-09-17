@@ -1,0 +1,103 @@
+# Binary multiplication. Two numbers, most significant bit first.
+#
+#   rw progs/binmul.rw '<1011*110>'   ->   1000010
+#
+# Shift and add, driven from the top of the multiplier: for each of its bits,
+# double the accumulator, and if the bit was 1 add the multiplicand in.
+# Doubling is free -- append a 0 -- so all the work is in the adding, and the
+# adding has to leave the multiplicand standing, because the next bit needs it
+# again. binadd.rw could eat its operands; this one cannot.
+#
+#   < multiplicand # $ multiplier | accumulator % >
+#
+# Two pointers do the work, and both are their own parking spaces. ^ sits at
+# the multiplicand's right end while idle and walks left as @ during an add,
+# emitting one traveller per bit without disturbing the bit. % sits at the
+# accumulator's right end while idle and walks left during an add, holding the
+# running carry in its identity: % is no carry, & is a carry.
+#
+# There is no program counter anywhere. What sequences the phases is rule
+# order alone: every rule below can only fire because everything above it has
+# run out of matches. The outer loop sits below the whole add, so it cannot
+# take another multiplier bit until both pointers have walked home.
+
+# bootstrap: * and > are consumed, so each of these fires exactly once
+*->^$
+>->|%
+
+# --- a traveller arrives: one column of the addition ---
+# accumulator digit, carried bit, carry in -> result digit, carry out
+0T%->%0
+1T%->%1
+0U%->%1
+1U%->&0
+0T&->%1
+1T&->&0
+0U&->&0
+1U&->&1
+
+# the accumulator ran out of digits: the missing one is a 0, and it grows
+|T%->|%0
+|U%->|%1
+|T&->|%1
+|U&->|&0
+
+# a traveller on its way right. It stops at % because nothing moves it past.
+T0->0T
+T1->1T
+T$->$T
+T|->|T
+U0->0U
+U1->1U
+U$->$U
+U|->|U
+
+# --- the add: @ walks left through the multiplicand, one bit per column ---
+# the bit is put back as @ steps over it, which is what keeps it for later
+0@->@0T
+1@->@1U
+<@-><H
+
+# multiplicand spent: ripple the last carry into the rest of the accumulator
+0&->%1
+1&->&0
+|&->|%1
+
+# both pointers walk home. Below the add, so neither leaves early.
+%0->0%
+%1->1%
+H0->0H
+H1->1H
+H$->^$
+
+# --- outer loop: one multiplier bit, most significant first ---
+# D doubles the accumulator; E doubles it and sends F back to start an add
+D0->0D
+D1->1D
+D|->|D
+D%->0%
+E0->0E
+E1->1E
+E|->|E
+E%->F0%
+0F->F0
+1F->F1
+|F->F|
+$F->F$
+^F->@
+
+# take the next multiplier bit. Dead last in the outer loop: D, E and F all
+# move by swapping, which shoves the next bit back against the $, so a launch
+# placed any higher would fire again while a token was still in transit.
+$0->$D
+$1->$E
+
+# --- multiplier spent: strip the multiplicand and the scaffolding ---
+<0-><
+<1-><
+<^$|->[
+[00->[0
+[01->[1
+[%->.0
+%->
+[->

@@ -67,6 +67,21 @@ check binadd/empty  binadd.rw  '<+1>'        '1'
 check binadd/lead   binadd.rw  '<010+001>'   '11'
 check binadd/wide   binadd.rw  '<1111111111111111+1>' '10000000000000000'
 
+check binmul/ex     binmul.rw  '<1011*110>'  '1000010'
+check binmul/zero   binmul.rw  '<0*0>'       '0'
+check binmul/one    binmul.rw  '<1*1>'       '1'
+check binmul/pow    binmul.rw  '<100*100>'   '10000'
+check binmul/square binmul.rw  '<111*111>'   '110001'
+check binmul/longer binmul.rw  '<1*1011>'    '1011'
+check binmul/lead   binmul.rw  '<0011*0011>' '1001'
+check binmul/empty  binmul.rw  '<101*>'      '0'
+check binmul/wide   binmul.rw  '<11111111*11111111>' '1111111000000001'
+# regression: with the launch rule above the token-movement rules, a token in
+# transit shoved the next multiplier bit back against the $ and launched a
+# second one. Anything with a multi-bit multiplier catches it; this returned
+# "EF0" rather than failing outright.
+check binmul/relaunch binmul.rw '<10*11>'    '110'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

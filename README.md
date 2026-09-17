@@ -93,6 +93,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
+| `binmul` | binary multiplication, by shift and add |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -188,6 +189,34 @@ mk/rw mk/progs/binadd.rw '<1011+110>'   # 10001
 
 Checked against every pair of operands up to 63, and it is only the tape that
 limits the width: two 200-bit numbers add fine.
+
+`binmul.rw` puts an adder inside a loop. For each bit of the multiplier, from
+the top, double the accumulator and — if the bit was 1 — add the multiplicand
+in. Doubling is free, since it is just appending a 0, so all the work is in
+the adding, and this adder cannot eat its operand the way `binadd.rw` does:
+the next bit needs the multiplicand again.
+
+```
+< multiplicand ^ $ multiplier | accumulator % >
+```
+
+Two pointers do it, and each is its own parking space. `^` rests at the
+multiplicand's right end and walks left as `@` during an add, emitting one
+traveller per bit while stepping over the bit and putting it back. `%` rests
+at the accumulator's right end and walks left during an add, holding the
+running carry in its own identity — `%` is no carry, `&` is a carry.
+
+There is no program counter anywhere in it. What sequences the phases is rule
+order alone: each rule can only fire because everything above it has run out
+of matches, and the outer loop sits below the entire add, so it cannot take
+another multiplier bit until both pointers have walked home.
+
+```sh
+mk/rw mk/progs/binmul.rw '<1011*110>'   # 1000010
+```
+
+Checked against every pair of operands up to 31. The ceiling here is the fuel
+rather than the tape: 72 bits by 72 bits multiplies, 80 by 80 gives up.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
