@@ -1,0 +1,38 @@
+# A Turing machine, simulated: the rewriter's Turing-completeness argument made
+# executable. State and head position live in the tape, and one rule encodes
+# one transition.
+#
+#   run: rw progs/tm.rw '<A>'
+#
+# Tape is bracketed by < and >. The head marker (A/B/C) sits immediately left
+# of the cell being read, so a transition is a purely local rewrite:
+#
+#   write t, move R, go to Q :   "Xs -> tQ"
+#   write t, move L, go to Q :   "xXs -> Qxt"   (one rule per cell value x)
+#
+# The machine is the 3-state busy beaver champion, 1RB1RH_0RC1RB_1LC1LA: from
+# a blank tape it halts after 14 steps having written six 1s. Halting is free
+# -- no rule mentions H, so once the head becomes H nothing matches and the
+# rewriter stops on its own.
+
+# blank supply: the tape is only ever as long as it has needed to be
+A>->A0>
+B>->B0>
+C>->C0>
+<A-><0A
+<B-><0B
+<C-><0C
+
+# A: 0 -> 1,R,B    1 -> 1,R,H
+A0->1B
+A1->1H
+
+# B: 0 -> 0,R,C    1 -> 1,R,B
+B0->0C
+B1->1B
+
+# C: 0 -> 1,L,C    1 -> 1,L,A
+0C0->C01
+1C0->C11
+0C1->A01
+1C1->A11

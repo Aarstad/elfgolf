@@ -1,0 +1,34 @@
+# Collatz, in unary. n is written as n ones between the end markers:
+#
+#   rw progs/collatz.rw '<1111111.'     ->  1.
+#
+# Each iteration walks a single marker across the tape; there is never more
+# than one marker alive, which is what keeps the rule order unambiguous.
+#
+#   P/Q  parity walk, eating 1s into as and toggling even/odd
+#   H    halving walk (even): pairs of as become bs
+#   G    return walk, turning the bs back into 1s
+#   T    tripling walk (odd): each a becomes 111, then <T adds the +1
+
+# reached 1: drop every marker and nothing matches any more
+<P1.->1.
+
+# first move only: no bare 1 ever sits next to < again until we are done
+<1-><P1
+
+# parity: P means even so far, Q means odd so far
+P1->aQ
+Q1->aP
+
+# even -- carry the marker back to the left, then halve
+P.->H.
+aH->Ha
+Haa->bH
+H.->G.
+bG->G1
+<G-><P
+
+# odd -- 3n+1, right to left, with the +1 spent on restarting the walk
+Q.->T.
+aT->T111
+<T-><P1

@@ -45,15 +45,64 @@ shaves a byte somewhere, the assert says whether it was actually possible.
 
 ## mk/ — a Markov rewriter
 
-Unrelated to the golfing, from the same sitting. `mk` is a Markov-style string
-rewriter in aarch64 assembly: no libc, no stack, no allocation. Rules are
-`lhs->rhs`, one per line; it rewrites the leftmost match of the first matching
-rule and restarts, halting when nothing matches.
+Unrelated to the golfing, from the same sitting. A Markov-style string rewriter
+in aarch64 assembly: no libc, no stack, no allocation. Rules are `lhs->rhs`,
+one per line; it rewrites the leftmost match of the first matching rule and
+restarts, halting when nothing matches.
+
+Two front ends. `rw` is an interpreter — it reads a `.rw` rule file and takes
+the tape as an argument or on stdin:
 
 ```sh
-mk/build.sh /tmp/add '111+11' '1+->+1' '+->'   # unary addition -> 11111
+mk/rw mk/progs/add.rw '111+11'        # -> 11111
 ```
 
-`mk/progs/` has `add`, `inc`, `mul`, `sort` and `spin` as `.rw` rule files.
-Programs are assembled *into* the binary — `build.sh` emits the rules and the
-tape as a `.data` section and links them with `core.s`.
+`build.sh` instead assembles a program *into* a binary: it emits the rules and
+the tape as a `.data` section and links them with `core.s`, so the result is a
+standalone executable with the rewrite rules baked in.
+
+```sh
+mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
+```
+
+`mk/progs/` holds the rule files:
+
+| | |
+|---|---|
+| `add` | unary addition, by sliding the `+` rightwards |
+| `inc` | binary increment with an explicit carry marker |
+| `mul` | unary multiply |
+| `sort` | adjacent-swap sort over `{a,b}` |
+| `spin` | oscillates forever without growing — exercises the fuel limit |
+| `tm` | a Turing machine: the 3-state busy beaver |
+| `collatz` | the Collatz map in unary, iterated to 1 |
+
+`tm.rw` is the Turing-completeness argument made concrete. State and head
+position live *in* the tape — the head marker sits just left of the cell being
+read — so one transition is one local rewrite, `Xs -> tQ` to move right and
+`xXs -> Qxt` to move left. Halting is free: no rule mentions the halt state, so
+when the head becomes `H` nothing matches and the rewriter stops on its own.
+
+The machine is the 3-state busy beaver champion, `1RB1RH_0RC1RB_1LC1LA`. From
+a blank tape it halts after 14 steps with six `1`s, the known BB(3) answer, and
+lands on the tape `111H111` — the leading `0` below is a blank the left-edge
+rule supplied and the machine never wrote on.
+
+```sh
+mk/rw mk/progs/tm.rw '<A>'            # -> <0111H111>
+```
+
+`collatz.rw` keeps exactly one marker alive on the tape at any moment, which is
+what makes the rule order unambiguous: a parity walk eats the `1`s into `a`s
+and toggles even/odd, then either a halving pass or a tripling pass rebuilds
+the number and hands the marker back to the left edge.
+
+```sh
+mk/rw mk/progs/collatz.rw '<1111111.'  # 7 -> ... -> 1.
+```
+
+`27` peaks at 9232, overruns the 4096-byte tape, and reports `rw: tape
+overflow` rather than truncating.
+
+`mk/test.sh` runs every rule file against a known answer, including that
+overflow.
