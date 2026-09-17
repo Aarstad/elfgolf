@@ -81,5 +81,20 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "collatz/27-ovf" "$rc" "$got"
 fi
 
-printf '\n%d passed, %d failed\n' "$pass" "$fail"
+# the README quotes an instruction count and a size for rw. Numbers in prose
+# rot, so check them rather than trusting them.
+if command -v llvm-objdump >/dev/null 2>&1 && [ -f ../README.md ]; then
+  got_n=$(llvm-objdump -d rw | awk '/^ *[0-9a-f]+:/{c++} END{print c}')
+  got_b=$(stat -c %s rw)
+  want_n=$(sed -n 's/^| \*\*\([0-9]*\)\*\* | \*\*total\*\* |$/\1/p' ../README.md)
+  want_b=$(sed -n 's/.*instructions in \([0-9]*\) bytes.*/\1/p' ../README.md)
+  if [ "$got_n" = "$want_n" ] && [ "$got_b" = "$want_b" ]; then
+    pass=$((pass+1)); printf 'ok   %-18s %s instructions, %s bytes\n' "readme/rw" "$got_n" "$got_b"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s README says %s instr / %s bytes, rw is %s / %s\n' \
+      "readme/rw" "$want_n" "$want_b" "$got_n" "$got_b"
+  fi
+fi
+
+printf '\n%d passed, %d failed\n'  "$pass" "$fail"
 [ "$fail" -eq 0 ]

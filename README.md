@@ -171,6 +171,29 @@ mk/rw mk/progs/rule110.rw "!$(printf '0%.0s' $(seq 47))1>$(printf '#%.0s' $(seq 
 `tm.rw` deliberately does *not* use a terminal rule: its halt state is
 expressed by no rule mentioning `H`, which is the point of that demo.
 
+### The interpreter, by the instruction
+
+`rw` is 182 aarch64 instructions in 2456 bytes, static, with no libc — no
+`INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
+
+| | |
+|---:|---|
+|  49 | read argv, open the program, load the tape |
+|  37 | parse a rule: line, comment, `->`, terminal dot |
+|  20 | search the tape for the lhs |
+|  39 | splice: shift the tape, write the rhs |
+|  37 | emit, fuel, overflow, usage, exit |
+| **182** | **total** |
+
+The lopsided figure is the search: twenty instructions are the whole matching
+engine. The splice is where the real work is, because it has to grow or shrink
+the tape in place and so copies in both directions depending on which way the
+rule changes the length.
+
+None of that is a compiler. `rw` parses its rules at runtime, so those 37
+instructions are a `->` finder, not a front end — `build.sh` is the compiler,
+and it is twelve lines of shell that hand the job to clang.
+
 `mk/test.sh` runs every rule file against a known answer, including that
 overflow. The Rule 110 cases were checked against an independent
 implementation over 46 random widths and generation counts before being
