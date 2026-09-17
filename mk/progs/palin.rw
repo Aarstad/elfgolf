@@ -1,0 +1,42 @@
+# Palindrome over {a,b}. Answers yes or no.
+#
+#   rw progs/palin.rw '<abba>'   ->  yes
+#   rw progs/palin.rw '<abb>'    ->  no
+#
+# The tape has no random access and the rules have no variables, so the check
+# is done by eating the string from both ends: pick the first letter up into
+# the marker that carries it (A carries an a, B carries a b), walk that marker
+# to the far end, and see what it meets there. Match, and both letters go;
+# mismatch, and the answer is already known.
+#
+# Rule order carries the invariant: picking a letter up is the last resort, so
+# every rule that mentions a marker sits above it. Otherwise a tape like <bA>
+# matches "<b" and picks up a second letter while the first is still in
+# flight, and the program is only correct with one marker alive.
+
+# nothing left, or one letter stranded in the middle: every pair agreed
+<>->.yes
+<a>->.yes
+<b>->.yes
+
+# a mismatch was found; W eats what is left so the answer stands on its own
+aW->W
+bW->W
+<W->.no
+
+# the far end: the carried letter meets the last one
+aA>->>
+bB>->>
+bA>->W
+aB>->W
+
+# carrying a letter rightwards
+Aa->aA
+Ab->bA
+Ba->aB
+Bb->bB
+
+# last resort: pick the first letter up. Below the answers too, or a lone
+# letter would be carried off into an empty tape instead of saying yes.
+<a-><A
+<b-><B

@@ -55,6 +55,17 @@ check r110/wide    rule110.rw "!$(printf '0%.0s' $(seq 15))1>########" \
 check first/hit    first.rw   '00101101'  '00[101]101'
 check first/miss   first.rw   '000'       '000'
 
+check palin/empty  palin.rw   '<>'        'yes'
+check palin/one    palin.rw   '<a>'       'yes'
+check palin/even   palin.rw   '<abba>'    'yes'
+check palin/odd    palin.rw   '<aabaa>'   'yes'
+check palin/no     palin.rw   '<abb>'     'no'
+check palin/long   palin.rw   '<abaababaaba>' 'yes'
+check palin/long-no palin.rw  '<abaababaabb>' 'no'
+# rule-order regression: with pick-up above the far-end rules this answered
+# "<BA>", having grabbed a second letter while the first was still in flight
+check palin/inflight palin.rw '<ab>'      'no'
+
 # terminal rules: "->." rewrites once and stops, even with the tape still
 # matching. Each pair below is the same rule, one dot apart.
 rule term/once      'aaa' 'Xaa'    'a->.X'

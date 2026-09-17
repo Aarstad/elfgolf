@@ -91,6 +91,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `collatz` | the Collatz map in unary, iterated to 1 |
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
 | `first` | brackets the first `101` and stops — one terminal rule |
+| `palin` | palindrome over `{a,b}`, eaten from both ends |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -167,6 +168,19 @@ mk/rw mk/progs/rule110.rw "!$(printf '0%.0s' $(seq 47))1>$(printf '#%.0s' $(seq 
                         ## # ######  ##      ###
                        #######    # ###     ## #
 ```
+
+`palin.rw` is the ordering discipline in miniature. With no
+random access and no variables in the rules, the check has to eat the string
+from both ends: pick the first letter up into a marker that carries it, walk
+that marker to the far end, and see what it meets. Every rule that mentions a
+marker sits *above* the two that pick a letter up, because picking one up is
+the last resort — get that backwards and a tape like `<bA>` matches `<b` and
+grabs a second letter while the first is still in flight. Checked exhaustively
+against every string over `{a,b}` up to length 10.
+
+Its `yes` and `no` are written as terminal rules for clarity rather than
+necessity: no rule in the program matches the letters of either word, so it
+would stop anyway. `first.rw` remains the case where the dot is load-bearing.
 
 `tm.rw` deliberately does *not* use a terminal rule: its halt state is
 expressed by no rule mentioning `H`, which is the point of that demo.
