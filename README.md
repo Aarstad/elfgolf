@@ -94,6 +94,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
 | `binmul` | binary multiplication, by shift and add |
+| `bindiv` | binary long division, quotient and remainder |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -234,6 +235,37 @@ mk/rw mk/progs/binmul.rw '<1011*110>'   # 1000010
 
 Checked against every pair of operands up to 31. The ceiling here is the fuel
 rather than the tape: 72 bits by 72 bits multiplies, 80 by 80 gives up.
+
+`bindiv.rw` is the first program here that has to *decide*. Everything up to
+it could ripple: addition and multiplication commit to each step as they take
+it. Long division cannot, because it has to know whether the divisor fits
+before it writes anything.
+
+```
+< divisor ^ ; quotient | remainder = $ dividend >
+```
+
+The divisor comes first because the tape is laid out the way the sum is
+written by hand — `11` goes into `1011`. That also puts the dividend at the
+far right, next to the remainder, so shifting in the next bit is one rule
+rather than a token walking the length of the tape.
+
+Two passes over the divisor, one mechanism. `@` walks it left emitting one
+traveller per bit exactly as in `binmul.rw`, and what a traveller does on
+arrival depends only on which marker it lands against: `%` and `&` compare, by
+doing the subtraction without writing it down and watching for a borrow out
+the left end; `:` and `!` subtract for real. A borrow out means the divisor did
+not fit, so the quotient bit is 0 and the remainder must be untouched — which
+is exactly why the compare pass writes each digit back unchanged.
+
+```sh
+mk/rw mk/progs/bindiv.rw '<11)1011>'   # 11r10
+```
+
+Checked against every dividend and divisor up to 63, quotient and remainder
+both. Dividing by zero is nonsense — the quotient comes out all ones — but it
+halts rather than spinning. The ceiling is the fuel again: a 96-bit dividend
+divides, 128 gives up.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string

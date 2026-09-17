@@ -82,6 +82,20 @@ check binmul/wide   binmul.rw  '<11111111*11111111>' '1111111000000001'
 # "EF0" rather than failing outright.
 check binmul/relaunch binmul.rw '<10*11>'    '110'
 
+check bindiv/ex     bindiv.rw  '<11)1011>'   '11r10'
+check bindiv/one    bindiv.rw  '<1)1>'       '1r0'
+check bindiv/exact  bindiv.rw  '<10)110>'    '11r0'
+check bindiv/self   bindiv.rw  '<11)11>'     '1r0'
+check bindiv/byone  bindiv.rw  '<1)1010>'    '1010r0'
+# divisor larger than dividend: the compare must borrow out every time, and
+# crucially must leave the remainder alone when it does
+check bindiv/toobig bindiv.rw  '<101)10>'    '0r10'
+check bindiv/zeroN  bindiv.rw  '<11)0>'      '0r0'
+check bindiv/lead   bindiv.rw  '<0011)001011>' '11r10'
+check bindiv/wide   bindiv.rw  '<1111)11111111>' '10001r0'
+# dividing by zero is nonsense, but it has to halt rather than spin
+check bindiv/byzero bindiv.rw  '<0)1011>'    '1111r1011'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

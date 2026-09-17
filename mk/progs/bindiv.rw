@@ -1,0 +1,135 @@
+# Binary long division. Answers quotient, then r, then remainder.
+#
+#   rw progs/bindiv.rw '<11)1011>'   ->   11r10        (1011 / 11 = 11 rem 10)
+#
+# The divisor comes first, because the tape is laid out the way the sum is
+# written by hand: 11 goes into 1011. Putting it there also puts the dividend
+# at the far right, next to the remainder, which is what makes taking the next
+# bit a single rule instead of a token walking the length of the tape.
+#
+#   < divisor ^ ; quotient | remainder = $ dividend >
+#
+# Per dividend bit: shift it into the remainder, then decide. Deciding is what
+# makes this harder than binmul.rw -- everything up to now could ripple, but
+# this has to know whether the divisor fits before it commits.
+#
+# So there are two passes over the divisor and one mechanism. @ walks it left
+# emitting one traveller per bit, exactly as in binmul.rw, and what the
+# traveller does on arrival depends on the marker it lands against:
+#
+#   % &   compare: subtract without writing, just to see if it borrows out
+#   : !   subtract for real
+#
+# A borrow out the left of the remainder means the divisor did not fit, so the
+# quotient bit is 0 and the remainder is untouched -- which is why the compare
+# has to leave the digits alone. Otherwise the same walk runs again against
+# : and the digits are written, and the quotient bit is 1.
+
+# bootstrap: ) is consumed, so this fires exactly once
+)->^;|=$
+
+# a traveller on its way right. First, so a traveller in flight freezes
+# everything else, which is what keeps them one at a time.
+T0->0T
+T1->1T
+T;->;T
+T|->|T
+U0->0U
+U1->1U
+U;->;U
+U|->|U
+
+# compare column: remainder digit, divisor bit, borrow in. The digit is
+# written back unchanged; only the marker carries anything away.
+0T%->%0
+1T%->%1
+0U%->&0
+1U%->%1
+0T&->&0
+1T&->%1
+0U&->&0
+1U&->&1
+|T%->|%
+|U%->|&
+|T&->|&
+|U&->|&
+
+# subtract column: same arithmetic, but now the digit is replaced
+0T:->:0
+1T:->:1
+0U:->!1
+1U:->:0
+0T!->!1
+1T!->:0
+0U!->!0
+1U!->!1
+|T:->|:
+|U:->|!
+|T!->|!
+|U!->|!
+
+# @ walks the divisor leftwards, putting each bit back as it steps over it
+0@->@0T
+1@->@1U
+<@-><H
+
+# divisor spent: ripple the last borrow through the rest of the remainder
+0&->&0
+1&->%1
+|&->|l
+0!->!1
+1!->:0
+|!->|:
+
+# the divisor pointer walks home. Above the marker walks and above anything
+# that launches F, so F is never sent while ^ is still missing.
+H0->0H
+H1->1H
+H;->^;
+
+# F goes back to wake the divisor pointer for a pass
+0F->F0
+1F->F1
+|F->F|
+;F->F;
+^F->@
+
+# n and m carry the decided quotient bit back to the quotient
+0n->n0
+1n->n1
+|n->0|
+0m->m0
+1m->m1
+|m->1|
+
+# it did not fit: park the marker idle and send a 0 to the quotient
+l0->0l
+l1->1l
+l$->n=$
+
+# it did fit and has been subtracted: park idle, send a 1
+:0->0:
+:1->1:
+:$->m=$
+
+# it did fit: park the marker in subtract mode and run the walk again
+%0->0%
+%1->1%
+%$->F:$
+
+# next dividend bit. Last, like every launch in progs/: the walks above all
+# move by swapping, and a launch any higher would fire mid-transit.
+=$0->F0%$
+=$1->F1%$
+
+# dividend spent: strip the divisor and the scaffolding
+<0-><
+<1-><
+<^;->[
+[00->[0
+[01->[1
+[->
+|00->|0
+|01->|1
+|->r
+=$>->
