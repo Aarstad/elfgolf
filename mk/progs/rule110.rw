@@ -1,0 +1,77 @@
+# Rule 110, the elementary cellular automaton, with its space-time diagram
+# left behind on the tape. Rule 110 is Turing complete, so this is a
+# completeness argument by citation, where tm.rw makes one by simulation.
+#
+#   rw progs/rule110.rw '!00000001>####' | tr / '\n'
+#
+# Input is "!" then the starting row in 0s and 1s, then ">", then one "#" per
+# generation to run. Output is every generation separated by "/".
+#
+# The awkward part on a one-dimensional tape is that the old row and the new
+# row want to live in the same span. Overwriting in place destroys the history
+# the diagram is made of, and interleaving the two rows only postpones the
+# problem -- separating them afterwards costs a quadratic shuffle.
+#
+# So the new cells are not written where they are computed. The sweep marker
+# (P = cell to my left was 0, Q = it was 1) walks rightwards over the old row,
+# leaving it untouched, and each cell it computes is launched as a traveller
+# (t = a new 0, u = a new 1) that runs to the far end of the tape and lands
+# just before the "." terminator. The old row stays put as history, and the
+# new row assembles itself in order beyond the ">".
+#
+# Only one traveller is ever in flight: the traveller rules sit above the
+# sweep rules, so while a traveller is moving it always matches first and the
+# sweep cannot take another step. That single fact is what keeps the new
+# cells in order -- without it two travellers could overtake each other and
+# the row would come out shuffled.
+
+# bootstrap -- fires once each, then never matches again
+!-><[
+>#->>.
+
+# travellers in flight. First, so that a moving traveller freezes the sweep.
+t0->0t
+t1->1t
+t>->>t
+t.->0.
+u0->0u
+u1->1u
+u>->>u
+u.->1.
+
+# the sweep: "P c r" -> keep c, advance the marker, launch f(prev,c,r).
+# 110 is "1 unless the neighbourhood is 111, 100 or 000".
+P00->0Pt0
+P01->0Pu1
+P10->1Qu0
+P11->1Qu1
+Q00->0Pt0
+Q01->0Pu1
+Q10->1Qu0
+Q11->1Qt1
+
+# last cell of the row: the right neighbour is the boundary, which is 0
+P0>->0Et>
+P1>->1Eu>
+Q0>->0Et>
+Q1>->1Eu>
+
+# row finished. The old ">" becomes the new row's left bracket, and K walks
+# out to the counter to spend a generation.
+E>->[K
+K0->0K
+K1->1K
+K.#->>.
+K.->V
+
+# counter empty: V walks home, tidying the scaffolding out of the output
+0V->V0
+1V->V1
+/V->V/
+[V->/V
+<V/->
+<V->
+
+# next generation. Below the V rules, or cleanup would start a fresh sweep.
+[0->/P0
+[1->/P1

@@ -30,6 +30,15 @@ check spin       spin.rw    'ab'       "$(printf 'rw: out of fuel\nab')"
 for n in 1 2 3 6 7 9 11 18; do
   check "collatz/$n" collatz.rw "<$(u $n)." '1.'
 done
+check r110/glider  rule110.rw '!00000001>####' '00000001/00000011/00000111/00001101/00011111'
+check r110/one     rule110.rw '!1>###'          '1/1/1/1'
+check r110/zero    rule110.rw '!0>##'           '0/0/0'
+check r110/pair    rule110.rw '!010>###'        '010/110/110/110'
+# a traveller that overtook another would shuffle the row, not lose it, so a
+# wide case with a lot of travellers in flight is the one that would catch it
+check r110/wide    rule110.rw "!$(printf '0%.0s' $(seq 15))1>########" \
+  '0000000000000001/0000000000000011/0000000000000111/0000000000001101/0000000000011111/0000000000110001/0000000001110011/0000000011010111/0000000111111101'
+
 # 27 peaks at 9232, past the 4096-byte tape. The limit is real, so assert it:
 # rw must report overflow and exit 3 rather than quietly truncating.
 got=$(./rw progs/collatz.rw "<$(u 27)." 2>&1 >/dev/null); rc=$?

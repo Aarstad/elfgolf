@@ -76,6 +76,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `spin` | oscillates forever without growing — exercises the fuel limit |
 | `tm` | a Turing machine: the 3-state busy beaver |
 | `collatz` | the Collatz map in unary, iterated to 1 |
+| `rule110` | the elementary cellular automaton, with its space-time diagram |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -104,5 +105,56 @@ mk/rw mk/progs/collatz.rw '<1111111.'  # 7 -> ... -> 1.
 `27` peaks at 9232, overruns the 4096-byte tape, and reports `rw: tape
 overflow` rather than truncating.
 
+`rule110.rw` is the second completeness argument in `progs/`: `tm.rw` makes it
+by simulation, this one by citation. The awkward part is that on a
+one-dimensional tape the old row and the new row want the same span —
+overwriting in place destroys the history, and interleaving the two rows only
+postpones the problem, since separating them afterwards costs a quadratic
+shuffle.
+
+So the new cells are not written where they are computed. The sweep marker
+walks rightwards over the old row without touching it, and each cell it
+computes is launched as a *traveller* that runs to the far end of the tape and
+lands past the row's end, where the next generation assembles itself in order.
+Only one traveller is ever in flight: the traveller rules sit above the sweep
+rules, so a moving traveller always matches first and freezes the sweep. That
+one ordering fact is the whole correctness argument — two travellers in flight
+could overtake each other and the row would come out shuffled.
+
+```sh
+mk/rw mk/progs/rule110.rw "!$(printf '0%.0s' $(seq 47))1>$(printf '#%.0s' $(seq 24))" \
+  | tr / '\n' | tr 01 ' #'
+```
+
+```
+                                               #
+                                              ##
+                                             ###
+                                            ## #
+                                           #####
+                                          ##   #
+                                         ###  ##
+                                        ## # ###
+                                       ####### #
+                                      ##     ###
+                                     ###    ## #
+                                    ## #   #####
+                                   #####  ##   #
+                                  ##   # ###  ##
+                                 ###  #### # ###
+                                ## # ##  ##### #
+                               ######## ##   ###
+                              ##      ####  ## #
+                             ###     ##  # #####
+                            ## #    ### ####   #
+                           #####   ## ###  #  ##
+                          ##   #  ##### # ## ###
+                         ###  ## ##   ######## #
+                        ## # ######  ##      ###
+                       #######    # ###     ## #
+```
+
 `mk/test.sh` runs every rule file against a known answer, including that
-overflow.
+overflow. The Rule 110 cases were checked against an independent
+implementation over 46 random widths and generation counts before being
+frozen into the suite.
