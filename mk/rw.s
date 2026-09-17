@@ -18,6 +18,7 @@
 
         .text
         .global _start
+// -- phase: read argv, open the program, load the tape
 _start:
         ldr     x28, [sp]                 // argc, from the kernel's arg block
         movz    x27, #(FUEL & 0xffff)     // rewrites remaining
@@ -75,6 +76,7 @@ _start:
         b.ne    .Lrestart
         mov     x20, x9
 
+// -- phase: parse a rule: line, comment, arrow, terminal dot
 .Lrestart:
         mov     x21, x22
 .Lrule: ldrb    w9, [x21]
@@ -117,6 +119,7 @@ _start:
         add     x24, x24, #1              // the dot is syntax, not output
         sub     x25, x25, #1
 
+// -- phase: search the tape for the lhs
 .Lscan: mov     x2, #0
 .Lsrch: add     x3, x2, x23
         cmp     x3, x20
@@ -139,6 +142,7 @@ _start:
         add     x21, x10, #1
         b       .Lrule
 
+// -- phase: splice: shift the tape, write the rhs
 .Lfound:
         cbz     x27, .Lfuel
         sub     x27, x27, #1
@@ -182,6 +186,7 @@ _start:
 .Lfin:  cbz     x13, .Lrestart            // ordinary rule: rescan from the top
         b       .Ldone                    // terminal rule: stop, however the tape looks
 
+// -- phase: emit, fuel, overflow, usage, exit
 .Ldone: mov     x26, #0
         b       .Lemit
 .Lfuel: adrp    x1, msg_fuel

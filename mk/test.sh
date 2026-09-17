@@ -81,18 +81,38 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "collatz/27-ovf" "$rc" "$got"
 fi
 
-# the README quotes an instruction count and a size for rw. Numbers in prose
-# rot, so check them rather than trusting them.
+# The README quotes rw's instruction count, its size, and a per-phase
+# breakdown. Derive all three from the binary and the source rather than
+# trusting them. The phase boundaries are marked in rw.s itself
+# ("// -- phase: ..."), so moving code between sections moves the count with
+# it and this check catches a README that did not follow.
 if command -v llvm-objdump >/dev/null 2>&1 && [ -f ../README.md ]; then
   got_n=$(llvm-objdump -d rw | awk '/^ *[0-9a-f]+:/{c++} END{print c}')
   got_b=$(stat -c %s rw)
   want_n=$(sed -n 's/^| \*\*\([0-9]*\)\*\* | \*\*total\*\* |$/\1/p' ../README.md)
   want_b=$(sed -n 's/.*instructions in \([0-9]*\) bytes.*/\1/p' ../README.md)
   if [ "$got_n" = "$want_n" ] && [ "$got_b" = "$want_b" ]; then
-    pass=$((pass+1)); printf 'ok   %-18s %s instructions, %s bytes\n' "readme/rw" "$got_n" "$got_b"
+    pass=$((pass+1)); printf 'ok   %-18s %s instructions, %s bytes\n' "readme/total" "$got_n" "$got_b"
   else
     fail=$((fail+1)); printf 'FAIL %-18s README says %s instr / %s bytes, rw is %s / %s\n' \
-      "readme/rw" "$want_n" "$want_b" "$got_n" "$got_b"
+      "readme/total" "$want_n" "$want_b" "$got_n" "$got_b"
+  fi
+
+  src_rows=$(awk '
+    /^\/\/ -- phase: / { name=substr($0, 14); order[++k]=name; cnt[name]+=0; next }
+    { line=$0
+      sub(/^[._A-Za-z][A-Za-z0-9_]*:/, "", line)
+      if (name != "" && line ~ /^[ \t]+[a-z]/) cnt[name]++ }
+    END { for (i=1;i<=k;i++) printf "%d|%s\n", cnt[order[i]], order[i] }' rw.s)
+  md_rows=$(sed -n 's/^| *\([0-9]\+\) | \(.*\) |$/\1|\2/p' ../README.md)
+  sum=$(printf '%s\n' "$src_rows" | awk -F'|' '{s+=$1} END{print s}')
+  if [ "$src_rows" = "$md_rows" ] && [ "$sum" = "$got_n" ]; then
+    pass=$((pass+1))
+    printf 'ok   %-18s %s rows, summing to %s\n' "readme/phases" \
+      "$(printf '%s\n' "$src_rows" | wc -l | tr -d ' ')" "$sum"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s rows disagree (sum %s vs %s)\n' "readme/phases" "$sum" "$got_n"
+    diff <(printf '%s\n' "$src_rows") <(printf '%s\n' "$md_rows") | sed 's/^/       /'
   fi
 fi
 

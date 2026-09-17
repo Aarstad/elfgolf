@@ -179,7 +179,7 @@ expressed by no rule mentioning `H`, which is the point of that demo.
 | | |
 |---:|---|
 |  49 | read argv, open the program, load the tape |
-|  37 | parse a rule: line, comment, `->`, terminal dot |
+|  37 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
 |  39 | splice: shift the tape, write the rhs |
 |  37 | emit, fuel, overflow, usage, exit |
@@ -193,6 +193,12 @@ rule changes the length.
 None of that is a compiler. `rw` parses its rules at runtime, so those 37
 instructions are a `->` finder, not a front end — `build.sh` is the compiler,
 and it is twelve lines of shell that hand the job to clang.
+
+That table is not prose. `rw.s` carries `// -- phase:` markers at the section
+boundaries, and `mk/test.sh` re-derives every row from the source and the
+total from the built binary. Move an instruction across a boundary and the
+suite says which row the README now gets wrong — the total alone would not
+notice, since it does not change.
 
 `mk/test.sh` runs every rule file against a known answer, including that
 overflow. The Rule 110 cases were checked against an independent
