@@ -50,6 +50,13 @@ in aarch64 assembly: no libc, no stack, no allocation. Rules are `lhs->rhs`,
 one per line; it rewrites the leftmost match of the first matching rule and
 restarts, halting when nothing matches.
 
+Every number in this file is either asserted by a row in `mk/test.sh` or
+labelled *calculated*. That convention exists because of a bad night's work:
+three claims here turned out to be wrong — the block-encoding argument, the
+"wider table" remark in `enc.rw`, and the self-application estimate — and all
+three were prose, with the test suite green throughout. Tests guard the claims
+somebody troubled to turn into tests. Everything else runs unguarded.
+
 A rule written `lhs->.rhs` is *terminal*: it rewrites once and stops, whether
 or not anything still matches. That is Markov's own notation, and it buys the
 one thing rule order cannot. `first.rw` is the whole argument in a single rule:
@@ -673,16 +680,22 @@ Self-application is `rw.rw` simulating the 427 object rewrites that an encoded
 `rw.rw` needs in order to sort `1010`:
 
 ```
-simulate one object rewrite at P = 8008:   66,988,485
-x 427 object rewrites:                     28,604,083,209
+simulate one object rewrite at P = 8008:   66,988,485     calculated
+x 427 object rewrites:                     28,604,083,209 calculated
   vs the 2.0e8 first quoted:               143x more
-  at the measured 204 us/rewrite:          68 days
+  at the measured 204 us/rewrite:          at least 68 days
 ```
 
-Both inputs are measured rather than assumed. The rewrite-count quadratic
-reproduces real runs to 0.0% at `P = 606`, thirteen times past the range it was
-fitted on; the 204 µs/rewrite is timed directly at an 8000-symbol tape, using
-`-f` to fix the budget so the cost per rewrite is what is being measured.
+"At least", and the reason is the axis the first mistake hid. That per-rewrite
+figure comes from runs with a **four-symbol** object tape, and a real
+self-application carries a doubly-encoded inner tape of around 427. Longer tape
+means longer courier trips, so the true cost is above this, not around it.
+
+The two inputs are measured. The rewrite-count quadratic reproduces real runs
+to 0.0% at `P = 606`, thirteen times past the range it was fitted on; the 204
+µs/rewrite is timed directly at an 8000-symbol tape, using `-f` to fix the
+budget so that cost per rewrite is what is being measured. The product of them
+is not measured, and is labelled above accordingly.
 
 2.9 × 10¹⁰ is past `2³²`, so the compile-time `FUEL` constant could not hold it
 even if the encoding existed — though `-f` could, since it parses into a 64-bit
