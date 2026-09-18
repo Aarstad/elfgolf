@@ -321,6 +321,43 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s -f broke the stdin path\n' "flag/stdin"
 fi
 
+# Raising TAPEMAX without raising the stdin read truncated at BUFSZ, silently,
+# which is the one thing the argv path is asserted not to do. Both paths must
+# take the same width and overflow rather than lose bytes.
+printf 'Q->R\n' > "$tmp"
+wide=$(printf '%065535d' 0 | tr 0 1)
+got=$(printf '%s\n' "$wide" | ./rw "$tmp" 2>/dev/null); rc=$?
+if [ "${#got}" -eq 65535 ] && [ "$rc" -eq 0 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "stdin/width" "65535 symbols, same as argv"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s rc=%s length %s, want 65535\n' "stdin/width" "$rc" "${#got}"
+fi
+got=$(printf '%s1\n' "$wide" | ./rw "$tmp" 2>&1 >/dev/null); rc=$?
+if [ "$got" = "rw: tape overflow" ] && [ "$rc" -eq 3 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "stdin/overflow" "reports rather than truncates, exit 3"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "stdin/overflow" "$rc" "$got"
+fi
+
+# The tape is the whole machine state: no registers, and the rule pointer
+# resets after every rewrite. So a run stopped by fuel emits a valid input for
+# the next one, and -f plus a pipe is a checkpoint. A long run is resumable.
+ckin='<10,01;*1010101010101010>'
+whole=$(./rw progs/rw.rw "$ckin")
+t="$ckin"; slices=0; out=
+while [ "$slices" -lt 50 ]; do
+  out=$(printf '%s\n' "$t" | ./rw -f 1000 progs/rw.rw 2>/dev/null); rc=$?
+  slices=$((slices+1))
+  [ "$rc" -eq 0 ] && break
+  [ "$rc" -eq 2 ] || break
+  t="$out"
+done
+if [ "$out" = "$whole" ] && [ "$slices" -gt 1 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s slices of 1000 give the same answer\n' "fuel/resumable" "$slices"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s %s slices, want %s got %s\n' "fuel/resumable" "$slices" "$whole" "$out"
+fi
+
 # dec.sh is the point of the converters: the binary programs, driven in
 # decimal. Check one of each rather than restating the arithmetic tests.
 decs() { # decs NAME ARGS... EXPECTED (expected is the last argument)

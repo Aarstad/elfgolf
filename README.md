@@ -234,6 +234,29 @@ error rather than a silent fall back to the default, on the grounds that a test
 meaning to be cheap should fail loudly rather than quietly cost a hundred
 million rewrites.
 
+`-f` turned out to be a checkpoint system, which was not why it was added. The
+tape is the entire machine state — there are no registers, and the rule pointer
+resets after every rewrite — and a run stopped by fuel still emits its tape. So
+the output of one slice is a valid input for the next:
+
+```sh
+t='<10,01;*1010101010101010>'
+while ! out=$(printf '%s\n' "$t" | mk/rw -f 1000 mk/progs/rw.rw); do t=$out; done
+```
+
+Thirteen slices of a thousand give the same answer as one run of 12,681, which
+`fuel/resumable` asserts. A computation too long to sit through is therefore
+resumable rather than unavailable, which matters for anything on the scale of
+the section below.
+
+That only works because stdin reads the full tape. It did not, for two commits:
+`TAPEMAX` went to 65536 while the stdin read stayed at `BUFSZ`, so a tape past
+16K came back silently truncated — the one failure the argv path is explicitly
+asserted not to have. One read is also not enough on a pipe, which hands over
+what it has rather than what is coming. Both paths now take 65535 symbols and
+report overflow above it, and `stdin/width` and `stdin/overflow` hold them
+together.
+
 `binsub.rw` is `binadd.rw` with the sign flipped — same layout, same
 travellers, `P` and `Q` carrying a borrow instead of a carry. Going negative is
 the only part addition never needed: the columns produce the answer modulo two
@@ -668,21 +691,21 @@ survived by accident.
 
 ### The interpreter, by the instruction
 
-`rw` is 248 aarch64 instructions in 2768 bytes, static, with no libc — no
+`rw` is 256 aarch64 instructions in 2800 bytes, static, with no libc — no
 `INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
 
 | | |
 |---:|---|
-|  89 | read argv, parse the flags, open the program, load the tape |
+|  97 | read argv, parse the flags, open the program, load the tape |
 |  38 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
 |  40 | splice: shift the tape, write the rhs |
 |  24 | trace one rewrite to stderr (-v) |
 |  37 | emit, fuel, overflow, usage, exit |
-| **248** | **total** |
+| **256** | **total** |
 
 The lopsided figure is still the search: twenty instructions are the whole
-matching engine, against eighty-nine to get the arguments in. The splice is where the real work is, because it has to grow
+matching engine, against ninety-seven to get the arguments in. The splice is where the real work is, because it has to grow
 or shrink the tape in place and so copies in both directions depending on
 which way the rule changes the length.
 

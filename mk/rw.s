@@ -3,6 +3,9 @@
 //   -v:    trace every rewrite to stderr as "rule<TAB>resulting tape"
 //   -f N:  allow N rewrites rather than the built-in FUEL, so that asserting
 //          a program does not halt costs N and not a hundred million
+//   note:  the tape is the whole machine state, and a run that stops on fuel
+//          still emits it, so its output is a valid input for the next run --
+//          "-f N" plus a pipe is a checkpoint, and a long run is resumable
 //   PROG:  one rule per line, "lhs->rhs"; lines starting with '#' ignored
 //   term:  "lhs->.rhs" is a terminal rule -- it rewrites once and halts,
 //          whether or not anything still matches
@@ -107,20 +110,28 @@ _start:
 .Lcpd:  mov     x20, x10
         b       .Lrestart
 
-.Lstdin:                                  // no INPUT: read stdin
+.Lstdin:                                  // no INPUT: read stdin to its end.
+        mov     x20, #0                   // one read is not enough: a pipe hands
+        mov     x12, #TAPEMAX             // over what it has, not what is coming,
+        add     x12, x12, #1              // and a checkpoint is bigger than a pipe.
+.Lrd:   subs    x2, x12, x20              // the spare byte is the newline below, so
+        b.eq    .Lrdd                     // that stdin and argv take the same width
         mov     x0, #0
-        mov     x1, x19
-        mov     x2, #BUFSZ
+        add     x1, x19, x20
         mov     x8, #SYS_read
         svc     #0
         tbnz    x0, #63, .Lerr
-        mov     x20, x0
-        cbz     x20, .Lrestart
+        cbz     x0, .Lrdd
+        add     x20, x20, x0
+        b       .Lrd
+.Lrdd:  cbz     x20, .Lrestart
         sub     x9, x20, #1               // drop one trailing newline
         ldrb    w10, [x19, x9]
         cmp     w10, #10
-        b.ne    .Lrestart
+        b.ne    .Lwide
         mov     x20, x9
+.Lwide: cmp     x20, #TAPEMAX
+        b.hs    .Lovf
 
 // -- phase: parse a rule: line, comment, arrow, terminal dot
 .Lrestart:
