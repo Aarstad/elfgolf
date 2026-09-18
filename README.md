@@ -91,6 +91,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `collatz` | the Collatz map in unary, iterated to 1 |
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
 | `collide` | two gliders, and what is left where they meet |
+| `fetch` | an indexed read, and what one costs |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
@@ -418,6 +419,35 @@ order, since two pulses in one place is exactly what `x` records.
 Its rule table is generated from the transition function rather than typed,
 and checked against an independent implementation over every arrangement of
 the four states up to fifteen cells wide.
+
+`fetch.rw` reads the cell at a given address — `<10:314159>` is index 2 of
+`314159`, which is `4`. Nothing about a rewriting machine forbids addressing —
+it is thirty rules — but it cannot be made to cost nothing, and the cost is
+what the program is for.
+
+Rules are local, so a signal moves one cell per rewrite, and reaching a cell
+*n* away takes *n* steps however the program is written. Constant-time access
+is not available at any rule count: that is a property of a one-dimensional
+tape, not a limitation of `rw`.
+
+```
+addr    0:   202 rewrites
+addr    1:   203            +1
+addr    2:   206            +3
+addr    4:   211            +5
+addr    8:   220            +9
+addr   16:   237           +17
+addr   32:   270           +33
+addr   64:   335           +65
+addr  128:   464          +129
+```
+
+Each doubling of the address doubles what the read costs — the address itself
+plus its own bit-length, for the borrows. The flat two hundred is the memory
+being discarded afterwards, since the program returns only the value.
+
+Everything else here is a matter of writing more rules; a constant-time read is
+not, and would mean a different machine underneath.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string

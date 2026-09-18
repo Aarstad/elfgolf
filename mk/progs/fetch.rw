@@ -1,0 +1,68 @@
+# Indexed read: fetch the cell at a given address.
+#
+#   rw progs/fetch.rw '<10:314159>'   ->   4
+#
+# Address in binary on the left, memory on the right: the digit at index 2 of
+# 314159 is 4. Out of range answers ?.
+#
+# Addressing costs O(n). Rules are local, so a signal moves one cell per
+# rewrite and reaching a cell n away takes n steps however the program is
+# written; that is a property of a one-dimensional tape, not of rw.
+#
+# The walk below is the cheapest one available: each step spends one from the
+# address and drops the cell it just passed, both of which happen right at the
+# ":" and neither of which needs anyone to travel. A version that left memory
+# standing would have to carry every passed cell around the address, and would
+# cost more. This one eats its way to the target.
+
+# a borrow working leftwards through the address
+1D->0
+0D->D1
+<D-><
+
+# leading zeros, so an exhausted address is an empty one
+<0-><
+
+# address spent: the cell at the front of memory is the answer
+<:0->0;
+<:1->1;
+<:2->2;
+<:3->3;
+<:4->4;
+<:5->5;
+<:6->6;
+<:7->7;
+<:8->8;
+<:9->9;
+<:>->.?
+
+# otherwise spend one: drop the cell just passed and decrement
+:0->D:
+:1->D:
+:2->D:
+:3->D:
+:4->D:
+:5->D:
+:6->D:
+:7->D:
+:8->D:
+:9->D:
+
+# memory ran out before the address did, which is also out of range. Below the
+# cycle, so eating the address can only happen once there is nothing to walk.
+:>->!
+<1-><
+<!->.?
+
+# the answer is taken; the rest of memory is not the answer
+;0->;
+;1->;
+;2->;
+;3->;
+;4->;
+;5->;
+;6->;
+;7->;
+;8->;
+;9->;
+;>->.

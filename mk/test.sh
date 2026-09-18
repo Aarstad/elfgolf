@@ -173,6 +173,16 @@ check collide/scar  collide.rw '!oxo>##'     'oxo/oxo/oxo'
 # a glider running into an existing scar is absorbed by it
 check collide/eat   collide.rw '!roxo>###'   'roxo/orxo/ooxo/ooxo'
 
+check fetch/ex     fetch.rw   '<10:314159>'  '4'
+check fetch/zero   fetch.rw   '<0:314159>'   '3'
+check fetch/last   fetch.rw   '<101:314159>' '9'
+# one past the end, and well past it: both are out of range, but the second
+# runs memory out while the address still has something left to spend
+check fetch/past   fetch.rw   '<110:314159>' '?'
+check fetch/waypast fetch.rw  '<1000:314159>' '?'
+check fetch/nomem  fetch.rw   '<0:>'         '?'
+check fetch/lead   fetch.rw   '<0010:314159>' '4'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'
