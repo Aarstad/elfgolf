@@ -1,0 +1,78 @@
+# Compare two binary numbers. Answers lt, eq or gt.
+#
+#   rw progs/bincmp.rw '<1011?110>'   ->   gt
+#   rw progs/bincmp.rw '<11?1011>'    ->   lt
+#   rw progs/bincmp.rw '<0011?11>'    ->   eq
+#
+# No borrows here. Walking both numbers from the low end, each column that
+# disagrees simply overwrites the verdict, and since the walk ends at the high
+# end the last disagreement is the one that survives -- which is the right
+# answer, because the most significant differing bit decides.
+#
+#   < left ... | right ... verdict >
+#
+# e means equal so far, g and l that the left ran ahead or behind. Once the
+# left operand is spent, any 1 still standing in the right one outranks
+# everything seen, whatever the verdict was.
+
+?->@|
+>->e;
+
+# a traveller on its way right
+T0->0T
+T1->1T
+T|->|T
+U0->0U
+U1->1U
+U|->|U
+
+# one column: right digit, carried left bit (T is a 0, U a 1), verdict so far
+0Te->e0
+0Tg->g0
+0Tl->l0
+1Te->l1
+1Tg->l1
+1Tl->l1
+0Ue->g0
+0Ug->g0
+0Ul->g0
+1Ue->e1
+1Ug->g1
+1Ul->l1
+
+# the right operand ran out of digits, so its digit is a 0
+|Te->|e
+|Tg->|g
+|Tl->|l
+|Ue->|g
+|Ug->|g
+|Ul->|g
+
+# @ walks the left operand, putting each bit back as it steps over it
+0@->@0T
+1@->@1U
+<@-><
+
+# left operand spent: a 1 left in the right one beats anything below it
+0e->e0
+1e->l1
+0g->g0
+1g->l1
+0l->l0
+1l->l1
+
+# the verdict is settled once it reaches the far end
+|e->|E
+|g->|G
+|l->|L
+
+# strip both operands and answer. The end marker is ; and not . on purpose:
+# "0.->." does not mean what it looks like -- a right-hand side beginning
+# with a dot is a terminal rule, so that reads as "delete 0. and halt".
+<0-><
+<1-><
+0;->;
+1;->;
+<|E;->.eq
+<|G;->.gt
+<|L;->.lt

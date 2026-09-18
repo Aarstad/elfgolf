@@ -110,6 +110,26 @@ check sqrt/padded  binsqrt.rw '<0000011001>' '101r0'
 # trial value used to match a second time and eat the root two bits at a time
 check sqrt/endsin01 binsqrt.rw '<10101010>' '1101r1'
 
+check binsub/ex     binsub.rw  '<1011-110>'  '101'
+check binsub/zero   binsub.rw  '<0-0>'       '0'
+check binsub/same   binsub.rw  '<101-101>'   '0'
+check binsub/borrow binsub.rw  '<1000-1>'    '111'
+# going negative: the digits on the tape are the two's complement, so the
+# answer is only right if N and C turn them back into a magnitude
+check binsub/neg    binsub.rw  '<110-1011>'  '-101'
+check binsub/neg1   binsub.rw  '<1-1000>'    '-111'
+check binsub/wide   binsub.rw  '<11111111-1>' '11111110'
+
+check bincmp/gt     bincmp.rw  '<1011?110>'  'gt'
+check bincmp/lt     bincmp.rw  '<11?1011>'   'lt'
+check bincmp/eq     bincmp.rw  '<0011?11>'   'eq'
+check bincmp/zero   bincmp.rw  '<0?0>'       'eq'
+# equal length, differing only in a low bit: the verdict has to survive the
+# walk up through the bits that agree
+check bincmp/lowbit bincmp.rw  '<1010?1011>' 'lt'
+# and a shorter number with a bigger top bit still loses on length
+check bincmp/length bincmp.rw  '<100000?11111>' 'gt'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

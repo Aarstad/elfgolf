@@ -1,0 +1,73 @@
+# Binary subtraction. Two numbers, most significant bit first.
+#
+#   rw progs/binsub.rw '<1011-110>'   ->   101
+#   rw progs/binsub.rw '<110-1011>'   ->   -101
+#
+# binadd.rw with the sign flipped: same layout, same travellers, P and Q now
+# carry a borrow rather than a carry.
+#
+#   < left operand | P | answer | separator | right operand | >
+#
+# Going negative is the only part addition did not need. The columns produce
+# the answer modulo two to the width, so when the borrow falls out of the top
+# the digits on the tape are the two's complement of what was wanted. N walks
+# the answer flipping every bit and C adds the one back, which turns it into
+# the magnitude, and the minus sign is not written until the final rewrite --
+# the rule that starts this program has "-" on its left-hand side, so a sign
+# sitting on the tape any earlier would be read as another operator.
+
+-->P|
+
+# a traveller reaches the marker: one column.
+# left bit, carried bit, borrow in; result bit and borrow out.
+0PT->P0
+1PT->P1
+0PU->Q1
+1PU->P0
+0QT->Q1
+1QT->P0
+0QU->Q0
+1QU->Q1
+
+# the left operand is spent, so its bit is a 0
+<PT-><P0
+<PU-><Q1
+<QT-><Q1
+<QU-><Q0
+
+# a traveller on its way left
+0T->T0
+1T->T1
+|T->T|
+0U->U0
+1U->U1
+|U->U|
+
+# launch: take the last bit of the right operand
+0>->T>
+1>->U>
+
+# right operand spent: ripple the borrow through what is left of the left one
+0Q->Q1
+1Q->P0
+0P->P0
+1P->P1
+
+# the borrow fell out of the top, so the answer is negative and the digits are
+# its two's complement. Flip them and add one to get the magnitude.
+<Q->{PN
+N0->1N
+N1->0N
+N|->C|
+0C->1
+1C->C0
+PC->P1
+
+# drop leading zeros, but only while two digits remain
+P00->P0
+P01->P1
+
+# scaffolding off, sign last
+|>->
+<P->.
+{P->.-

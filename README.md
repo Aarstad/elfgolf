@@ -93,6 +93,8 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
+| `binsub` | binary subtraction, negative answers included |
+| `bincmp` | compares two binary numbers: `lt`, `eq` or `gt` |
 | `binmul` | binary multiplication, by shift and add |
 | `bindiv` | binary long division, quotient and remainder |
 | `binsqrt` | integer square root, digit by digit |
@@ -208,6 +210,27 @@ no
 
 Only the last line is on stdout, so a trace can be watched while the answer is
 still piped somewhere.
+
+`binsub.rw` is `binadd.rw` with the sign flipped — same layout, same
+travellers, `P` and `Q` carrying a borrow instead of a carry. Going negative is
+the only part addition never needed: the columns produce the answer modulo two
+to the width, so when the borrow falls out of the top what is on the tape is
+the two's complement of the answer. `N` walks it flipping every bit and `C`
+adds the one back.
+
+The minus sign is not written until the last rewrite: the rule that starts the
+program has `-` on its left-hand side, so a sign sitting on the tape any
+earlier would be read as another operator.
+
+`bincmp.rw` needs no borrows at all. Walking both numbers from the low end,
+each column that disagrees simply overwrites the verdict, and because the walk
+ends at the high end the last disagreement is the one that survives — which is
+the right answer, since the most significant differing bit decides.
+
+```sh
+mk/rw mk/progs/binsub.rw '<110-1011>'   # -101
+mk/rw mk/progs/bincmp.rw '<11?1011>'    # lt
+```
 
 `binmul.rw` puts an adder inside a loop. For each bit of the multiplier, from
 the top, double the accumulator and — if the bit was 1 — add the multiplicand
