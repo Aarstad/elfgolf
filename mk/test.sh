@@ -183,6 +183,15 @@ check fetch/waypast fetch.rw  '<1000:314159>' '?'
 check fetch/nomem  fetch.rw   '<0:>'         '?'
 check fetch/lead   fetch.rw   '<0010:314159>' '4'
 
+check padd/ex      padd.rw    '<zyww>'     '10100'
+check padd/zero    padd.rw    '<wwww>'     '0000'
+check padd/carry   padd.rw    '<z>'        '10'
+check padd/ripple  padd.rw    '<zzzz>'     '11110'
+# a carry out of the top has to grow the answer by a digit
+check padd/grow    padd.rw    '<zzz>'      '1110'
+check padd/noadd   padd.rw    '<xxxx>'     '1111'
+check padd/mixed   padd.rw    '<yzwx>'     '10001'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

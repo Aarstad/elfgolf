@@ -1,0 +1,49 @@
+# Addition where the two operands already share cells.
+#
+#   rw progs/padd.rw '<zyww>'   ->   10100     (1100 + 1000, in one string)
+#
+# Every other arithmetic program here keeps its operands apart and sends a
+# traveller between them, which is why 97% of a multiply in binmul.rw is one
+# symbol stepping past another. This one asks what happens if the operands are
+# interleaved instead, so a column is a single cell and nothing has to travel.
+#
+# A cell holds one bit of each number, read as (a,r):
+#
+#   w = (0,0)   x = (0,1)   y = (1,0)   z = (1,1)
+#
+# The answer replaces r. The carry is the only thing that moves, and it moves
+# the shortest distance a carry can: one cell, to the column above.
+#
+#   binadd.rw    8 bits     84 rewrites      256 bits   66,052
+#   padd.rw      8 bits     20 rewrites      256 bits      516
+#
+# Doubling the width costs binadd.rw 3.97x and this 1.98x, so the gap is not a
+# constant -- separating the operands costs a factor of the width itself.
+#
+# It does not replace binadd.rw. Interleaving two numbers that arrive apart
+# costs a quadratic shuffle of its own, so this only pays when the operands
+# are already in this shape and stay in it, as in a systolic layout.
+
+>->M
+
+# one column: cell, carry in -> cell with r replaced, carry out.
+# M carries nothing, N carries one.
+wM->Mw
+xM->Mx
+yM->Mz
+zM->Ny
+wN->Mx
+xN->Nw
+yN->Ny
+zN->Nz
+
+# out of the top: a carry becomes a new leading digit
+<M->
+<N-><x
+
+# read off the answer, which is the r of every cell
+w->0
+x->1
+y->0
+z->1
+<->.

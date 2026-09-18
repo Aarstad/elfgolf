@@ -92,6 +92,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
 | `collide` | two gliders, and what is left where they meet |
 | `fetch` | an indexed read, and what one costs |
+| `padd` | addition with the operands interleaved, and what that saves |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
@@ -448,6 +449,38 @@ being discarded afterwards, since the program returns only the value.
 
 Everything else here is a matter of writing more rules; a constant-time read is
 not, and would mean a different machine underneath.
+
+`padd.rw` measures what the travellers cost. Of a 32-bit multiply in
+`binmul.rw`, **96.9% of the rewrites are one symbol stepping past another** —
+the arithmetic is three percent. Division is 94.8% movement, addition 93.8%.
+
+So `padd.rw` interleaves the two operands instead of keeping them apart. A cell
+holds one bit of each, a column is a single symbol, and nothing travels except
+the carry, which moves one cell:
+
+```
+   bits     binadd     padd    ratio
+      8         84       20       4x
+     32      1,092       68      16x
+    128     16,644      260      64x
+    256     66,052      516     128x
+```
+
+The ratio is not a constant. Doubling the width
+costs `binadd.rw` **3.97x** and `padd.rw` **1.98x** — quadratic against linear.
+Separating the operands does not cost a factor; it costs a factor of *the
+width itself*.
+
+It does not make `binadd.rw` pointless, because interleaving two numbers that
+arrive apart is a quadratic shuffle of its own. It pays when the operands are
+already in that shape and stay in it, as in a systolic layout, where a
+multiplier is `n` rounds of a linear add instead of `n` rounds of a quadratic
+one.
+
+`sort.rw` makes the same point in one rule. `ba->ab` looks like naive bubble
+sort, but on a line where the only communication is nearest-neighbour it is the
+right algorithm; the asymptotically better ones would spend their savings on
+the distance they need.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
