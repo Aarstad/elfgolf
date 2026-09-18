@@ -3,6 +3,8 @@
 //   -v:    trace every rewrite to stderr as "rule<TAB>resulting tape"
 //   -f N:  allow N rewrites rather than the built-in FUEL, so that asserting
 //          a program does not halt costs N and not a hundred million
+//   life:  the kernel kills a run when its parent dies, so a trace cannot
+//          outlive the shell that started it
 //   note:  the tape is the whole machine state, and a run that stops on fuel
 //          still emits it, so its output is a valid input for the next run --
 //          "-f N" plus a pipe is a checkpoint, and a long run is resumable
@@ -18,14 +20,23 @@
         .set    SYS_write, 64
         .set    SYS_openat, 56
         .set    SYS_exit, 93
+        .set    SYS_prctl, 167
+        .set    PR_SET_PDEATHSIG, 1
+        .set    SIGKILL, 9
         .set    BUFSZ, 16384
         .set    TAPEMAX, 65536
         .set    FUEL, 100000000
 
         .text
         .global _start
-// -- phase: read argv, parse the flags, open the program, load the tape
+// -- phase: ask the kernel to kill us when our parent dies
 _start:
+        mov     x0, #PR_SET_PDEATHSIG     // a trace outlives the terminal that
+        mov     x1, #SIGKILL              // started it otherwise, and a long
+        mov     x8, #SYS_prctl            // run then burns a core unattended
+        svc     #0
+
+// -- phase: read argv, parse the flags, open the program, load the tape
         ldr     x28, [sp]                 // argc, from the kernel's arg block
         movz    x27, #(FUEL & 0xffff)     // rewrites remaining
         movk    x27, #(FUEL >> 16), lsl #16

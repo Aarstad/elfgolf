@@ -228,6 +228,15 @@ no
 Only the last line is on stdout, so a trace can be watched while the answer is
 still piped somewhere.
 
+A run dies with the shell that started it. Before `rw` reads its first argument
+it asks the kernel, via `prctl(PR_SET_PDEATHSIG, SIGKILL)`, to kill it when its
+parent goes. A trace against the built-in fuel is otherwise still running after
+the terminal that launched it is gone: one was found at 87% of a core forty
+minutes on, which on a phone is a warm case and a flat battery rather than a
+stray process. The kernel only signals direct children, so an intervening shell
+that outlives its own parent — `sh -c '... | wc -l'`, reparented but alive —
+still shields the run.
+
 `rw -f N` caps the run at `N` rewrites instead of the built-in `FUEL`. That is
 what makes a non-halting program cheap to assert: `spin.rw` never stops, and
 the test that says so wants the message, not a hundred million rewrites.
@@ -704,18 +713,19 @@ survived by accident.
 
 ### The interpreter, by the instruction
 
-`rw` is 256 aarch64 instructions in 2800 bytes, static, with no libc — no
+`rw` is 260 aarch64 instructions in 2928 bytes, static, with no libc — no
 `INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
 
 | | |
 |---:|---|
+|   4 | ask the kernel to kill us when our parent dies |
 |  97 | read argv, parse the flags, open the program, load the tape |
 |  38 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
 |  40 | splice: shift the tape, write the rhs |
 |  24 | trace one rewrite to stderr (-v) |
 |  37 | emit, fuel, overflow, usage, exit |
-| **256** | **total** |
+| **260** | **total** |
 
 The lopsided figure is still the search: twenty instructions are the whole
 matching engine, against ninety-seven to get the arguments in. The splice is where the real work is, because it has to grow
