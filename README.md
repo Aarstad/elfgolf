@@ -629,17 +629,42 @@ file — encoded and run under the interpreter, and it is the generality claim
 discharged rather than asserted. Checked on 141 random source programs, drawn
 from an alphabet containing the aliasing trio, against running them directly.
 
-### Self-application, and what it now costs
+### Self-application, and what it would cost
 
-`rw.rw` is 1144 raw symbols over an alphabet of 43. At six bits and a
-separator that is 8008 encoded symbols — which fits on a 65536-byte tape, so
-the obstacle is no longer the tape.
+An earlier version of this section claimed self-application was "one constant
+away, on a machine where that constant is a `movz`/`movk` pair". That was wrong
+twice over, and both errors are worth keeping written down.
 
-It is the fuel. Extrapolating the quadratic to `P = 8008` gives about
-**2.0 × 10⁸ rewrites** to interpret an encoded `rw.rw` interpreting anything at
-all, against the `FUEL` of 10⁸. So self-application is now an arithmetic
-question with a reachable answer rather than an impossibility — one constant
-away, on a machine where that constant is a `movz`/`movk` pair.
+**It cannot be constructed at all.** `enc.rw` cannot encode `rw.rw`. Thirty-four
+of `rw.rw`'s forty-three symbols have no code in the table, and six of those —
+`,` `!` `;` `*` `<` `>` — are structure in `enc.rw`'s own input syntax. So this
+is not a table that wants widening; the encoder's syntax collides with the
+alphabet it would have to encode, and `rw.rw` cannot be written down as an
+object program until that is given an escape convention.
+
+**And the figure was for the wrong computation.** `rw.rw` is 1144 raw symbols
+over an alphabet of 43, so 8008 encoded symbols, which does fit a 65536-byte
+tape. But `2.0 × 10⁸` is the cost of a whole run of *three* object rewrites on a
+*four-symbol* tape that happens to use a program the size of encoded `rw.rw`.
+Self-application is `rw.rw` simulating the 427 object rewrites that an encoded
+`rw.rw` needs in order to sort `1010`:
+
+```
+simulate one object rewrite at P = 8008:   66,988,485
+x 427 object rewrites:                     28,604,083,209
+  vs the 2.0e8 first quoted:               143x more
+  at the measured 204 us/rewrite:          68 days
+```
+
+Both inputs are measured rather than assumed. The rewrite-count quadratic
+reproduces real runs to 0.0% at `P = 606`, thirteen times past the range it was
+fitted on; the 204 µs/rewrite is timed directly at an 8000-symbol tape, using
+`-f` to fix the budget so the cost per rewrite is what is being measured.
+
+2.9 × 10¹⁰ is past `2³²`, so the compile-time `FUEL` constant could not hold it
+even if the encoding existed — though `-f` could, since it parses into a 64-bit
+register. That is the one part of the original claim that survived, and it
+survived by accident.
 
 ### The interpreter, by the instruction
 

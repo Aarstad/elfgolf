@@ -16,8 +16,11 @@
 # hand side carries its own, and a match can only align where the periods do --
 # which is the block boundary. The cost is one symbol in seven.
 #
-# The table below is six bits, so 0-9 and a-z. A wider alphabet is a wider
-# table, not a different machine.
+# The table below is six bits, so 0-9 and a-z. Widening it covers more source
+# symbols, but not all of them: , ! ; * < > are structure in the input above,
+# so a program whose own alphabet uses them cannot be written down here at all.
+# That is a gap in this file, not in rw.rw, and closing it needs an escape
+# convention rather than more table. rw.rw is itself on the wrong side of it.
 #
 # The cursor : eats one source symbol and leaves its block behind, so an
 # emitted block is never read back as source -- which is what lets 0, 1 and 2
