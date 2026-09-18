@@ -1,6 +1,8 @@
 // rw - aarch64 interpreter for a rewriting language. no libc, no stack frames.
-//   usage: rw [-v] PROG.rw [INPUT]   (INPUT omitted -> read stdin)
+//   usage: rw [-v] [-f N] PROG.rw [INPUT]   (INPUT omitted -> read stdin)
 //   -v:    trace every rewrite to stderr as "rule<TAB>resulting tape"
+//   -f N:  allow N rewrites rather than the built-in FUEL, so that asserting
+//          a program does not halt costs N and not a hundred million
 //   PROG:  one rule per line, "lhs->rhs"; lines starting with '#' ignored
 //   term:  "lhs->.rhs" is a terminal rule -- it rewrites once and halts,
 //          whether or not anything still matches
@@ -13,13 +15,13 @@
         .set    SYS_write, 64
         .set    SYS_openat, 56
         .set    SYS_exit, 93
-        .set    BUFSZ, 4096
-        .set    TAPEMAX, 4096
-        .set    FUEL, 1000000
+        .set    BUFSZ, 16384
+        .set    TAPEMAX, 65536
+        .set    FUEL, 100000000
 
         .text
         .global _start
-// -- phase: read argv, open the program, load the tape
+// -- phase: read argv, parse the flags, open the program, load the tape
 _start:
         ldr     x28, [sp]                 // argc, from the kernel's arg block
         movz    x27, #(FUEL & 0xffff)     // rewrites remaining
@@ -32,20 +34,44 @@ _start:
         mov     x14, #0                   // tracing?
         mov     x15, #16                  // byte offset of the program argument
 
-        cmp     x28, #2
+// flags, in any order, each shifting the rest along by one
+.Lflag: cmp     x28, #2
         b.lt    .Lusage
-        ldr     x9, [sp, #16]             // is argv[1] exactly "-v"?
+        add     x9, sp, x15
+        ldr     x9, [x9]
         ldrb    w10, [x9]
         cmp     w10, #45                  // '-'
         b.ne    .Largs
-        ldrb    w10, [x9, #1]
-        cmp     w10, #118                 // 'v'
-        b.ne    .Largs
         ldrb    w10, [x9, #2]
-        cbnz    w10, .Largs
-        mov     x14, #1
-        mov     x15, #24                  // the rest shifts along by one
+        cbnz    w10, .Largs               // two characters exactly, or it is a path
+        ldrb    w10, [x9, #1]
+        add     x15, x15, #8
         sub     x28, x28, #1
+        cmp     w10, #118                 // 'v'
+        b.ne    .Lsetf
+        mov     x14, #1
+        b       .Lflag
+
+.Lsetf: cmp     w10, #102                 // 'f', with the count in the next argument
+        b.ne    .Lusage
+        cmp     x28, #2
+        b.lt    .Lusage
+        add     x9, sp, x15
+        ldr     x9, [x9]
+        mov     x27, #0
+        mov     x11, #10
+        ldrb    w10, [x9]
+        cbz     w10, .Lusage              // "-f ''" is not a count
+.Lfdig: ldrb    w10, [x9], #1
+        cbz     w10, .Lfdon
+        sub     w10, w10, #48             // '0'
+        cmp     w10, #9
+        b.hi    .Lusage
+        madd    x27, x27, x11, x10
+        b       .Lfdig
+.Lfdon: add     x15, x15, #8
+        sub     x28, x28, #1
+        b       .Lflag
 
 .Largs: cmp     x28, #2
         b.lt    .Lusage
@@ -278,7 +304,7 @@ _start:
 
         .section .rodata
 msg_tab: .ascii "\t\n"                    // a tab, then a newline
-msg_use: .ascii "usage: rw [-v] PROG.rw [INPUT]\n"
+msg_use: .ascii "usage: rw [-v] [-f N] PROG.rw [INPUT]\n"
         .set    msg_use_len, . - msg_use
 msg_err: .ascii "rw: cannot read program\n"
         .set    msg_err_len, . - msg_err

@@ -129,8 +129,10 @@ the number and hands the marker back to the left edge.
 mk/rw mk/progs/collatz.rw '<1111111.'  # 7 -> ... -> 1.
 ```
 
-`27` peaks at 9232, overruns the 4096-byte tape, and reports `rw: tape
-overflow` rather than truncating.
+`27` peaks at 9232. That overran the tape when `TAPEMAX` was 4096 and the
+program reported `rw: tape overflow` rather than truncating; at 65536 it fits
+and runs to `1.`. The limit is still real and still asserted — `first.rw` with
+its dot stripped grows without bound and overflows in a few thousand rewrites.
 
 `rule110.rw` is the second completeness argument in `progs/`: `tm.rw` makes it
 by simulation, this one by citation. The awkward part is that on a
@@ -216,6 +218,19 @@ no
 
 Only the last line is on stdout, so a trace can be watched while the answer is
 still piped somewhere.
+
+`rw -f N` caps the run at `N` rewrites instead of the built-in `FUEL`. That is
+what makes a non-halting program cheap to assert: `spin.rw` never stops, and
+the test that says so wants the message, not a hundred million rewrites.
+
+```sh
+mk/rw -f 1000 mk/progs/spin.rw 'ab'   # -> rw: out of fuel, exit 2
+```
+
+The two flags compose in either order. A count that is not a number is a usage
+error rather than a silent fall back to the default, on the grounds that a test
+meaning to be cheap should fail loudly rather than quietly cost a hundred
+million rewrites.
 
 `binsub.rw` is `binadd.rw` with the sign flipped — same layout, same
 travellers, `P` and `Q` carrying a borrow instead of a carry. Going negative is
@@ -500,21 +515,21 @@ expressed by no rule mentioning `H`, which is the point of that demo.
 
 ### The interpreter, by the instruction
 
-`rw` is 226 aarch64 instructions in 2672 bytes, static, with no libc — no
+`rw` is 248 aarch64 instructions in 2768 bytes, static, with no libc — no
 `INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
 
 | | |
 |---:|---|
-|  67 | read argv, open the program, load the tape |
+|  89 | read argv, parse the flags, open the program, load the tape |
 |  38 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
 |  40 | splice: shift the tape, write the rhs |
 |  24 | trace one rewrite to stderr (-v) |
 |  37 | emit, fuel, overflow, usage, exit |
-| **226** | **total** |
+| **248** | **total** |
 
 The lopsided figure is still the search: twenty instructions are the whole
-matching engine. The splice is where the real work is, because it has to grow
+matching engine, against eighty-nine to get the arguments in. The splice is where the real work is, because it has to grow
 or shrink the tape in place and so copies in both directions depending on
 which way the rule changes the length.
 

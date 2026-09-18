@@ -36,8 +36,15 @@ check mul        mul.rw     'aa*bbb'   'cccccc'
 check sort       sort.rw    'bbaabab'  'aaabbbb'
 check tm/bb3     tm.rw      '<A>'      '<0111H111>'
 
-# spin never halts; it must hit the fuel limit rather than the tape limit
-check spin       spin.rw    'ab'       "$(printf 'rw: out of fuel\nab')"
+# spin never halts; it must hit the fuel limit rather than the tape limit.
+# -f sets that limit for one run, so the assertion costs a thousand rewrites
+# rather than the built-in hundred million.
+got=$(./rw -f 1000 progs/spin.rw 'ab' 2>&1); rc=$?
+if [ "$got" = "$(printf 'rw: out of fuel\nab')" ] && [ "$rc" -eq 2 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "spin" "out of fuel at -f 1000, exit 2"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s rc=%s got %s\n' "spin" "$rc" "$got"
+fi
 
 # collatz: every start below drops to 1
 for n in 1 2 3 6 7 9 11 18; do
@@ -220,14 +227,10 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "term/selfmatch" "$rc" "$got"
 fi
 
-# 27 peaks at 9232, past the 4096-byte tape. The limit is real, so assert it:
-# rw must report overflow and exit 3 rather than quietly truncating.
-got=$(./rw progs/collatz.rw "<$(u 27)." 2>&1 >/dev/null); rc=$?
-if [ "$got" = "rw: tape overflow" ] && [ "$rc" -eq 3 ]; then
-  pass=$((pass+1)); printf 'ok   %-18s %s\n' "collatz/27-ovf" "overflow, exit 3"
-else
-  fail=$((fail+1)); printf 'FAIL %-18s rc=%s msg=%s\n' "collatz/27-ovf" "$rc" "$got"
-fi
+# 27 peaks at 9232. That overflowed the old 4096-byte tape; at TAPEMAX 65536
+# it fits, so assert it runs to 1 rather than dying. Overflow itself is still
+# asserted, by term/selfmatch above, which grows without bound.
+check collatz/27-peak collatz.rw "<$(u 27)." '1.'
 
 # -v traces each rewrite to stderr as "rule<TAB>tape", and leaves stdout alone
 out=$(./rw -v progs/palin.rw '<abb>' 2>/dev/null)
@@ -249,6 +252,39 @@ else
   fail=$((fail+1)); printf 'FAIL %-18s -v broke the stdin path\n' "trace/stdin"
 fi
 
+
+# -f sets the fuel for one run. A count that is not a number is a usage error
+# rather than a silent fall back to the default, which would make a test that
+# meant to be cheap quietly cost a hundred million rewrites instead.
+usage="usage: rw [-v] [-f N] PROG.rw [INPUT]"
+fcheck() { # fcheck NAME EXPECTED-RC EXPECTED ARGS...
+  local name=$1 want_rc=$2 want=$3; shift 3
+  local got; got=$(./rw "$@" 2>&1); local rc=$?
+  if [ "$got" = "$want" ] && [ "$rc" -eq "$want_rc" ]; then
+    pass=$((pass+1)); printf 'ok   %-18s %s\n' "$name" "$*"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s %s\n       want rc=%s %s\n       got  rc=%s %s\n' \
+      "$name" "$*" "$want_rc" "$want" "$rc" "$got"
+  fi
+}
+fcheck flag/fuel-short  2 "$(printf 'rw: out of fuel\n1+1111')" -f 2 progs/add.rw '111+11'
+fcheck flag/fuel-ample  0 '11111'   -f 100 progs/add.rw '111+11'
+fcheck flag/no-count    1 "$usage"  -f progs/add.rw
+fcheck flag/bad-count   1 "$usage"  -f 5x progs/add.rw '1'
+fcheck flag/unknown     1 "$usage"  -x progs/add.rw '1'
+# the flags compose, and the order they are given in must not matter
+a=$(./rw -v -f 3 progs/spin.rw 'ab' 2>&1); b=$(./rw -f 3 -v progs/spin.rw 'ab' 2>&1)
+if [ "$a" = "$b" ] && [ "$(printf '%s\n' "$a" | wc -l | tr -d ' ')" = "5" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "flag/order" "-v -f and -f -v agree"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s -v -f and -f -v disagree\n' "flag/order"
+fi
+# -f must not disturb the stdin path any more than -v does
+if [ "$(printf '<abba>\n' | ./rw -f 500 progs/palin.rw 2>/dev/null)" = "yes" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s reads stdin with -f\n' "flag/stdin"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s -f broke the stdin path\n' "flag/stdin"
+fi
 
 # dec.sh is the point of the converters: the binary programs, driven in
 # decimal. Check one of each rather than restating the arithmetic tests.
