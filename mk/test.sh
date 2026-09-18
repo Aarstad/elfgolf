@@ -232,6 +232,41 @@ fi
 # asserted, by term/selfmatch above, which grows without bound.
 check collatz/27-peak collatz.rw "<$(u 27)." '1.'
 
+# rw.rw: rw interpreting rw. Object programs over {0,1,2}, <rules*tape>,
+# a rule being "lhs,rhs;" or "lhs!rhs;" for a terminal one.
+check rw/sort       rw.rw  '<10,01;*1010>'        '0011'
+check rw/add        rw.rw  '<10,01;0,;*111011>'   '11111'
+check rw/ordinary   rw.rw  '<11,0;*1111>'         '00'
+check rw/terminal   rw.rw  '<11!0;*1111>'         '011'
+check rw/empty-rhs  rw.rw  '<1,;*1011>'           '0'
+check rw/no-match   rw.rw  '<10,01;*>'            ''
+check rw/no-program rw.rw  '<*1010>'              '1010'
+check rw/separator  rw.rw  '<12,21;*2121>'        '2211'
+# rule order is the object program's too: the first rule that matches wins,
+# at its leftmost occurrence, and a firing restarts the scan from the top
+check rw/priority   rw.rw  '<1,0;10,2;*10>'       '00'
+check rw/leftmost   rw.rw  '<11,2;*0110110>'      '02020'
+# enc.rw: source symbol -> six bits and a separator
+check enc/sort      enc.rw '<ba,ab;*abab>' '<00101120010102,00101020010112;*0010102001011200101020010112>'
+check enc/alias     enc.rw '<3,z;*1w>'     '<0000112,1000112;*00000121000002>'
+# the whole point of the separator: 1 codes 000001 and w codes 100000, so a
+# naive 6-bit tape "1w" contains 000011, which is the code for 3. A rule for 3
+# must not fire on a tape that never held one.
+got=$(./rw progs/rw.rw "$(./rw progs/enc.rw '<3,z;*1w>')" 2>&1)
+if [ "$got" = "00000121000002" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "enc/no-phantom" "6-bit alias does not fire"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s got %s\n' "enc/no-phantom" "$got"
+fi
+# end to end: encode sort.rw and run it under rw.rw. ba->ab on abab is aabb.
+got=$(./rw progs/rw.rw "$(./rw progs/enc.rw '<ba,ab;*abab>')" 2>&1)
+want=$(./rw progs/enc.rw '<ba,ab;*aabb>' | sed 's/.*[*]//; s/>$//')
+if [ "$got" = "$want" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "rw/encoded-sort" "sorts abab through the encoding"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s\n       want %s\n       got  %s\n' "rw/encoded-sort" "$want" "$got"
+fi
+
 # -v traces each rewrite to stderr as "rule<TAB>tape", and leaves stdout alone
 out=$(./rw -v progs/palin.rw '<abb>' 2>/dev/null)
 trc=$(./rw -v progs/palin.rw '<abb>' 2>&1 >/dev/null)

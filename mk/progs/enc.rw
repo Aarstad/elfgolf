@@ -1,0 +1,75 @@
+# enc.rw -- encode an rw program for rw.rw.
+#
+#   rw progs/enc.rw '<ba,ab;*abab>'
+#      ->  <00101120010102,00101020010112;*0010102001011200101020010112>
+#
+# rw.rw's object alphabet is {0,1,2}. Any rw program reaches it by coding each
+# source symbol as a fixed-width block, and the point of this file is that the
+# obvious way to do that is wrong.
+#
+# A plain 6-bit block code is not substring-preserving. Matching happens at the
+# bit level and nothing makes a match land on a block boundary: with A=000001
+# and B=100000, the tape AB is 000001100000, which contains 000011 at offset 1.
+# A rule for the symbol coded 000011 then fires on a tape that never held it.
+#
+# So every block ends in a 2. The separators sit at a fixed period, every left
+# hand side carries its own, and a match can only align where the periods do --
+# which is the block boundary. The cost is one symbol in seven.
+#
+# The table below is six bits, so 0-9 and a-z. A wider alphabet is a wider
+# table, not a different machine.
+#
+# The cursor : eats one source symbol and leaves its block behind, so an
+# emitted block is never read back as source -- which is what lets 0, 1 and 2
+# be ordinary source symbols here.
+
+# bootstrap, once: the opener is parked as [ so it cannot re-trigger
+<->[:
+
+# the code table
+:0->0000002:
+:1->0000012:
+:2->0000102:
+:3->0000112:
+:4->0001002:
+:5->0001012:
+:6->0001102:
+:7->0001112:
+:8->0010002:
+:9->0010012:
+:a->0010102:
+:b->0010112:
+:c->0011002:
+:d->0011012:
+:e->0011102:
+:f->0011112:
+:g->0100002:
+:h->0100012:
+:i->0100102:
+:j->0100112:
+:k->0101002:
+:l->0101012:
+:m->0101102:
+:n->0101112:
+:o->0110002:
+:p->0110012:
+:q->0110102:
+:r->0110112:
+:s->0111002:
+:t->0111012:
+:u->0111102:
+:v->0111112:
+:w->1000002:
+:x->1000012:
+:y->1000102:
+:z->1000112:
+
+# structure passes through untouched
+:,->,:
+:!->!:
+:;->;:
+:*->*:
+:>->>
+
+# terminal: restore the opener and stop, with the tape still matching <
+[->.<

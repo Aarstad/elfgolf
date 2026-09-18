@@ -1,0 +1,254 @@
+# rw, in rw. A Markov rewriter interpreting a Markov rewriter.
+#
+#   rw progs/rw.rw '<10,01;*1010>'   ->   0011
+#
+# The object program's alphabet is {0,1,2}. Input is <rules*tape>, where a
+# rule is "lhs,rhs;", or "lhs!rhs;" for a terminal one. Bootstrap turns that
+# into the working layout
+#
+#   { rules... @ rule ... | prefix A marked ^ rest >
+#
+# @ is the rule pointer, parked immediately left of the rule being tried. A is
+# the anchor, parked left of the candidate occurrence, and ^ is the compare
+# frontier; between them sit the tape symbols matched so far, as a/b/c. Those
+# three markers are the entire state of the machine.
+#
+# Matching is binmul.rw's courier trick: @ steps over one lhs symbol, marking
+# it x/y/z so the rule survives, and launches X/Y/Z rightwards to test the
+# frontier. As there, rule order is the only synchronisation -- a courier's
+# arrival outranks the next emission, so exactly one is ever in flight.
+#
+# Three walks come home. J follows a mismatch: it unmarks the tape, slides the
+# anchor one right and rewinds the pointer. V follows a rule that matched
+# nowhere: it re-anchors and steps the pointer on. K..S..W follows a match: it
+# deletes the occurrence, copies the rhs in by courier and walks both pointers
+# home. A terminal rule additionally sends N left to flip { into [, and at the
+# end of that commit [ starts an eater instead of restoring @ -- halting is
+# implemented as deleting the program, which is what a terminal rule means.
+#
+# Why three symbols and not two: a fixed-width binary block code is not
+# substring-preserving. With A=000001 and B=100000 the tape AB contains 000011
+# at offset 1, so a rule for that third symbol fires on a tape that never held
+# it. A separator fixes the period, and a match can then only land on a block
+# boundary. See enc.rw.
+
+# bootstrap: each fires exactly once
+<->{@
+*->|A^
+
+# --- a compare courier arrives at the frontier ---
+X^0->a^
+X^1->R1
+X^2->R2
+X^>->R>
+Y^0->R0
+Y^1->b^
+Y^2->R2
+Y^>->R>
+Z^0->R0
+Z^1->R1
+Z^2->c^
+Z^>->R>
+
+# couriers in flight. They pass everything but the frontier
+X0->0X
+X1->1X
+X2->2X
+X,->,X
+X!->!X
+X;->;X
+X|->|X
+XA->AX
+Xa->aX
+Xb->bX
+Xc->cX
+Y0->0Y
+Y1->1Y
+Y2->2Y
+Y,->,Y
+Y!->!Y
+Y;->;Y
+Y|->|Y
+YA->AY
+Ya->aY
+Yb->bY
+Yc->cY
+Z0->0Z
+Z1->1Z
+Z2->2Z
+Z,->,Z
+Z!->!Z
+Z;->;Z
+Z|->|Z
+ZA->AZ
+Za->aZ
+Zb->bZ
+Zc->cZ
+
+# mismatch: unmark back to the anchor, then slide the anchor one right
+aR->R0
+bR->R1
+cR->R2
+AR0->0JA^
+AR1->1JA^
+AR2->2JA^
+AR>->V>
+
+# J: home to the rule pointer, which then rewinds over its own marks
+0J->J0
+1J->J1
+2J->J2
+xJ->Jx
+yJ->Jy
+zJ->Jz
+,J->J,
+!J->J!
+;J->J;
+|J->J|
+@J->B
+xB->B0
+yB->B1
+zB->B2
+{B->{@
+;B->;@
+
+# V: this rule matched nowhere. Re-anchor, then step the pointer on
+|V->V|A^
+0V->V0
+1V->V1
+2V->V2
+xV->Vx
+yV->Vy
+zV->Vz
+,V->V,
+!V->V!
+;V->V;
+@V->C
+xC->C0
+yC->C1
+zC->C2
+{C->{~
+;C->;~
+~0->0~
+~1->1~
+~2->2~
+~,->,~
+~!->!~
+~;->;@
+
+# offer the next lhs symbol. Below all of the above, so one courier flies
+@0->x@X
+@1->y@Y
+@2->z@Z
+
+# the whole lhs matched: fire
+@,->K,:
+@!->NK!:
+
+# N: a terminal rule fired, so mark the program for death
+0N->N0
+1N->N1
+2N->N2
+xN->Nx
+yN->Ny
+zN->Nz
+,N->N,
+!N->N!
+;N->N;
+{N->[
+
+# K: go and delete the matched run, leaving + where it stood
+K0->0K
+K1->1K
+K2->2K
+K,->,K
+K!->!K
+K;->;K
+K|->|K
+K:->:K
+KA->AQ
+Qa->Q
+Qb->Q
+Qc->Q
+Q^->+
+
+# rhs couriers land just left of the splice, so the rhs arrives in order
+G+->0+
+H+->1+
+I+->2+
+G0->0G
+G1->1G
+G2->2G
+G,->,G
+G!->!G
+G;->;G
+G|->|G
+GA->AG
+H0->0H
+H1->1H
+H2->2H
+H,->,H
+H!->!H
+H;->;H
+H|->|H
+HA->AH
+I0->0I
+I1->1I
+I2->2I
+I,->,I
+I!->!I
+I;->;I
+I|->|I
+IA->AI
+
+# copy the rhs out, leaving it standing for the next firing
+:0->x:G
+:1->y:H
+:2->z:I
+:;->;
+
+# splice done: the anchor walks home
++->S
+0S->S0
+1S->S1
+2S->S2
+AS->S
+|S->W|A^
+
+# W: the pointer walks home, restoring the rule it just fired
+0W->W0
+1W->W1
+2W->W2
+,W->W,
+!W->W!
+;W->W;
+xW->W0
+yW->W1
+zW->W2
+{W->{@
+[W->E
+
+# the pointer ran off the end: nothing matched, so halt
+@|->P|
+0P->P0
+1P->P1
+2P->P2
+,P->P,
+!P->P!
+;P->P;
+{P->E
+
+# eat the program, then the scaffolding. The tape is the answer
+E0->E
+E1->E
+E2->E
+E,->E
+E!->E
+E;->E
+E|->F
+FA->F
+F^->F
+F0->0F
+F1->1F
+F2->2F
+F>->

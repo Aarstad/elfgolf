@@ -95,6 +95,8 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `padd` | addition with the operands interleaved, and what that saves |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
+| `rw` | rw itself: a rewriter interpreting a rewriter |
+| `enc` | source alphabet in, `{0,1,2}` out, for `rw.rw` |
 | `binadd` | binary addition, a column at a time, carry and all |
 | `binsub` | binary subtraction, negative answers included |
 | `bincmp` | compares two binary numbers: `lt`, `eq` or `gt` |
@@ -512,6 +514,132 @@ would stop anyway. `first.rw` remains the case where the dot is load-bearing.
 
 `tm.rw` deliberately does *not* use a terminal rule: its halt state is
 expressed by no rule mentioning `H`, which is the point of that demo.
+
+### rw.rw — the rewriter, rewritten
+
+`rw.rw` is `rw` written as a set of `rw` rules: 189 of them, interpreting an
+object program held on the same tape as the tape it runs on.
+
+```sh
+mk/rw mk/progs/rw.rw '<10,01;*1010>'      # -> 0011
+```
+
+Input is `<rules*tape>`, a rule being `lhs,rhs;` — or `lhs!rhs;` when it is
+terminal. Bootstrap turns that into the working layout, and three markers are
+the entire machine state:
+
+```
+{ rules... @ rule ... | prefix A marked ^ rest >
+```
+
+`@` is the rule pointer, parked left of the rule being tried. `A` is the
+anchor, parked left of the candidate occurrence, and `^` is the compare
+frontier, with the symbols matched so far sitting between them.
+
+The matching is `binmul.rw`'s courier trick, one level up. `@` steps over one
+left-hand-side symbol, marking it so the rule survives to fire again, and
+launches a courier rightwards to test the frontier — exactly as `0@->@0T`
+steps over a multiplicand bit without consuming it. Rule order is again the
+only synchronisation: a courier's arrival outranks the next emission, so
+exactly one is ever in flight.
+
+Three walks come home, and they are where the design actually lives. `J`
+follows a mismatch: it unmarks the tape, slides the anchor one right, and
+rewinds the pointer over its own marks. `V` follows a rule that matched
+nowhere: it re-anchors and steps the pointer to the next rule. `K..S..W`
+follows a match: it deletes the occurrence, copies the right-hand side in by
+courier, and walks both pointers home.
+
+Halting a terminal rule is the part worth stating plainly. `N` runs left and
+flips `{` to `[`; at the end of that commit, `[` starts an eater rather than
+restoring `@`, so **a terminal rule halts by deleting the program**. That is
+what the dot means, made operational.
+
+Checked against `rw` itself on 461 random object programs and every case in
+`test.sh`.
+
+### What interpretation costs
+
+Not a constant factor. Every symbol comparison is a courier crossing the whole
+program to reach the tape, so the factor grows with the distance:
+
+```
+   tape    native     rw.rw    ratio
+      2         1       158     158x
+      4         3       427     142x
+      8        10      1887     189x
+     16        36     12681     352x
+     24        78     44587     572x
+     32       136    114373     841x
+```
+
+Against program size it is worse than linear. The same three rewrites, with
+dead rules parked in front of them:
+
+```
+  rules   symbols     rw.rw    delta
+      1         6       427
+      2        14      1492     1065
+      3        22      2957     1465
+      4        30      4822     1865
+      5        38      7087     2265
+      6        46      9752     2665
+```
+
+The second difference is a flat 400, so the cost is quadratic in the program:
+`3.125·P² + 70.6·P − 109` reproduces the last row exactly. A rewriter
+interpreting a rewriter pays the tape's own geometry twice — which is
+`fetch.rw`'s result about addressing and `padd.rw`'s about travellers,
+arriving one level up.
+
+### enc.rw, and why the obvious encoding is wrong
+
+`rw.rw` reads an object alphabet of `{0,1,2}`, and the generality claim is that
+any `rw` program reaches it by coding each source symbol as a fixed-width
+block. As stated that claim is false, and the counterexample is small.
+
+Matching happens at the symbol level and nothing makes a match land on a block
+boundary. Take a 6-bit code with `1 -> 000001` and `w -> 100000`. The tape `1w`
+is `000001100000`, which contains `000011` at offset 1 — the code for `3`. A
+rule for `3` fires on a tape that never held one:
+
+```sh
+mk/rw mk/progs/rw.rw '<000011,111111;*000001100000>'   # -> 011111100000
+```
+
+Nothing is wrong with the interpreter there; it matched what was on the tape.
+The hole is in the encoding, and no amount of testing `rw.rw` against `rw`
+would find it, because both are right.
+
+`enc.rw` closes it with the third symbol. Every block ends in a `2`, so the
+separators sit at a fixed period, every left-hand side carries its own, and a
+match can only align where the periods do — the block boundary. The cost is one
+symbol in seven, and about fifty extra rules in `rw.rw` to carry the third
+symbol through every courier and every walk.
+
+```sh
+mk/rw mk/progs/enc.rw '<ba,ab;*abab>'
+# -> <00101120010102,00101020010112;*0010102001011200101020010112>
+mk/rw mk/progs/rw.rw  '<00101120010102,00101020010112;*0010102001011200101020010112>'
+# -> 0010102001010200101120010112        which decodes to aabb
+```
+
+That is `sort.rw` — `ba->ab`, the one-rule bubble sort from the top of this
+file — encoded and run under the interpreter, and it is the generality claim
+discharged rather than asserted. Checked on 141 random source programs, drawn
+from an alphabet containing the aliasing trio, against running them directly.
+
+### Self-application, and what it now costs
+
+`rw.rw` is 1144 raw symbols over an alphabet of 43. At six bits and a
+separator that is 8008 encoded symbols — which fits on a 65536-byte tape, so
+the obstacle is no longer the tape.
+
+It is the fuel. Extrapolating the quadratic to `P = 8008` gives about
+**2.0 × 10⁸ rewrites** to interpret an encoded `rw.rw` interpreting anything at
+all, against the `FUEL` of 10⁸. So self-application is now an arithmetic
+question with a reachable answer rather than an impossibility — one constant
+away, on a machine where that constant is a `movz`/`movk` pair.
 
 ### The interpreter, by the instruction
 
