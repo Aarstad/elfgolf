@@ -98,6 +98,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `binmul` | binary multiplication, by shift and add |
 | `bindiv` | binary long division, quotient and remainder |
 | `binsqrt` | integer square root, digit by digit |
+| `bingcd` | greatest common divisor, Stein's algorithm |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -316,6 +317,36 @@ mk/rw mk/progs/binsqrt.rw '<1010>'   # 11r1 — sqrt 10 is 3, with 1 over
 
 Checked against every input below 4096 and random ones up to 40 bits, root and
 remainder both. A 160-bit input still roots; 224 runs out of fuel.
+
+`bingcd.rw` is where the tape picks the algorithm. Euclid is the wrong one
+here: it needs a `mod`, which is the whole of `bindiv.rw`, hundreds of
+thousands of rewrites per round. Stein's binary GCD needs only parity, halving
+and subtraction — and with the low end of each number parked against a marker
+that never moves, the first two are single local rules. A number is even if a
+`0` sits against its marker, and halving it is *deleting that bit*.
+
+```
+< A ^ k Z | B % >
+```
+
+`Z` banks the twos the pair had in common, as zeros to hang on the answer at
+the end. One cycle probes both parities and acts on the four cases in order:
+both even (halve both, bank a two), one even (halve it), both odd (compare,
+then take the smaller from the larger).
+
+That last case is the one that costs something. The larger is whichever the
+compare says, so the subtraction has to run in *either* direction, and every
+program before this one had a fixed direction of flow. Rather than swap the
+two numbers — a lot of tape to move — there are two mirrored sets of columns:
+`@` walks A rightwards into B, or `*` walks B leftwards into A. The travellers
+and the ordering discipline are shared; only the direction differs.
+
+```sh
+mk/rw mk/progs/bingcd.rw '<1100,1000>'   # 100 — gcd 12 8 is 4
+```
+
+Both operands must be nonzero. Checked against every pair up to 63 and random
+pairs to 4000. 64-bit operands still work; 96-bit runs out of fuel.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string

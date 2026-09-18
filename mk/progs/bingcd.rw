@@ -1,0 +1,198 @@
+# Binary GCD (Stein's). Two numbers, most significant bit first, both nonzero.
+#
+#   rw progs/bingcd.rw '<1100,1000>'   ->   100      (gcd 12 8 = 4)
+#
+# Euclid would be the wrong algorithm here. It needs a mod, which is the whole
+# of bindiv.rw, hundreds of thousands of rewrites a round. Stein's needs only
+# parity, halving and subtraction -- and on a tape with the low end parked
+# against a marker the first two are single local rules. Halving is literally
+# deleting the last bit.
+#
+#   < A ^ k Z | B % >
+#
+# ^ and % mark the right ends of the two numbers and never move, so a bit is
+# even if a 0 sits against the marker and halving it is one deletion. Z holds
+# the twos the pair had in common, as zeros to hang on the answer at the end.
+#
+# One cycle: probe both parities, then act on the four cases in order --
+# both even (halve both, bank a two), one even (halve it), both odd (compare,
+# then take the smaller from the larger).
+#
+# The larger is whichever the compare says, so the subtraction has to run in
+# both directions. Rather than swap the numbers, which is a lot of tape to
+# move, there are two mirrored sets: @ walks A rightwards into B, or * walks
+# B leftwards into A. Everything else is shared.
+
+,->^k|
+>->%;
+
+# travellers heading right, out of A and into B
+T0->0T
+T1->1T
+T^->^T
+T|->|T
+U0->0U
+U1->1U
+U^->^U
+U|->|U
+
+# travellers heading left, out of B and into A
+0V->V0
+1V->V1
+^V->V^
+|V->V|
+0X->X0
+1X->X1
+^X->X^
+|X->X|
+
+# compare column: B digit, carried A bit, verdict so far. No borrows needed --
+# a column that disagrees just overwrites the verdict, so the last one to
+# disagree wins, which is the most significant.
+0Te->e0
+0Tg->g0
+0Tl->l0
+1Te->l1
+1Tg->l1
+1Tl->l1
+0Ue->g0
+0Ug->g0
+0Ul->g0
+1Ue->e1
+1Ug->g1
+1Ul->l1
+|Te->|e
+|Tg->|g
+|Tl->|l
+|Ue->|g
+|Ug->|g
+|Ul->|g
+
+# B -= A column
+0T:->:0
+1T:->:1
+0U:->!1
+1U:->:0
+0T!->!1
+1T!->:0
+0U!->!0
+1U!->!1
+|T:->|:
+|U:->|!
+|T!->|!
+|U!->|!
+
+# A -= B column, the mirror of it
+0{V->{0
+1{V->{1
+0{X->}1
+1{X->{0
+0}V->}1
+1}V->{0
+0}X->}0
+1}X->}1
+<{V-><{
+<{X-><}
+<}V-><}
+<}X-><}
+
+# @ walks A leftwards, * walks B leftwards, each putting its bit back
+0@->@0T
+1@->@1U
+<@-><
+0*->V*0
+1*->X*1
+|*->|
+
+# tokens on the move. Above the ripples: a pass has not finished while a
+# token is still walking to the far end to set the next one up.
+p0->0p
+p1->1p
+p|->|p
+s0->0s
+s1->1s
+s|->|s
+0q->q0
+1q->q1
+|q->q|
+0r->r0
+1r->r1
+|r->r|
+0t->t0
+1t->t1
+|t->t|
+0z->z0
+1z->z1
+|z->z|
+0w->w0
+1w->w1
+|w->w|
+y0->0y
+y1->1y
+y|->|y
+
+# a probe arriving at B, which is where the four cases are decided
+0p%->q%
+1p%->r1%
+0s%->t%
+1s%->z1e%
+0y%->y%
+1y%->z1e%
+
+# and coming home again
+0^q->^k0
+0^r->^k
+^t->^k
+^z->@^
+^w->{^
+
+# whichever walk just ended, ripple the last of it out
+0e->e0
+1e->l1
+0g->g0
+1g->l1
+0l->l0
+1l->l1
+0!->!1
+1!->:0
+|!->|:
+0}->}1
+1}->{0
+<}-><{
+
+# the verdict is settled once it reaches the far end of B
+|e->|E
+|g->|G
+|l->|L
+
+# park a finished marker and say what happens next
+:0->0:
+:1->1:
+:%->y%
+{0->0{
+{1->1{
+{^->^j
+L0->0L
+L1->1L
+L%->z:%
+G0->0G
+G1->1G
+G%->w*%
+
+# halving A is deleting the bit against its marker, and j keeps at it
+0^j->^j
+1^j->1^y
+
+# probe: A's parity decides which prober goes, B's decides what it does
+0^k->0^p
+1^k->1^s
+
+# equal at last: the answer is A with the banked twos hung on the end
+|E->]
+]0->]
+]1->]
+]%;->
+^->
+<00-><0
+<01-><1
+<->.

@@ -130,6 +130,20 @@ check bincmp/lowbit bincmp.rw  '<1010?1011>' 'lt'
 # and a shorter number with a bigger top bit still loses on length
 check bincmp/length bincmp.rw  '<100000?11111>' 'gt'
 
+check gcd/ex       bingcd.rw  '<1100,1000>' '100'
+check gcd/one      bingcd.rw  '<1,1>'       '1'
+check gcd/same     bingcd.rw  '<1000,1000>' '1000'
+check gcd/divides  bingcd.rw  '<1111,101>'  '101'
+check gcd/coprime  bingcd.rw  '<1111,1000>' '1'
+# the larger operand can be on either side, and the subtraction has to run in
+# whichever direction the compare asks for
+check gcd/aboveb   bingcd.rw  '<10101,111>' '111'
+check gcd/belowa   bingcd.rw  '<111,10101>' '111'
+# both even: the common twos are banked in Z and hung back on the answer
+check gcd/twos     bingcd.rw  '<110000,100000>' '10000'
+check gcd/lead     bingcd.rw  '<0001100,1000>'  '100'
+check gcd/wide     bingcd.rw  '<1111111111,110000>' '11'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'
