@@ -144,6 +144,19 @@ check gcd/twos     bingcd.rw  '<110000,100000>' '10000'
 check gcd/lead     bingcd.rw  '<0001100,1000>'  '100'
 check gcd/wide     bingcd.rw  '<1111111111,110000>' '11'
 
+check dec2bin/zero dec2bin.rw '<0>'         '0'
+check dec2bin/ten  dec2bin.rw '<10>'        '1010'
+check dec2bin/255  dec2bin.rw '<255>'       '11111111'
+check dec2bin/big  dec2bin.rw '<1234>'      '10011010010'
+check dec2bin/lead dec2bin.rw '<000255>'    '11111111'
+check bin2dec/zero bin2dec.rw '<0>'         '0'
+check bin2dec/ten  bin2dec.rw '<1010>'      '10'
+check bin2dec/255  bin2dec.rw '<11111111>'  '255'
+check bin2dec/big  bin2dec.rw '<10011010010>' '1234'
+check bin2dec/lead bin2dec.rw '<00001010>'  '10'
+# every carry in the doubling table gets used by a number with a 9 in it
+check bin2dec/nines bin2dec.rw '<1111011011>' '987'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'
@@ -200,6 +213,27 @@ if [ "$(printf '<abba>\n' | ./rw -v progs/palin.rw 2>/dev/null)" = "yes" ]; then
 else
   fail=$((fail+1)); printf 'FAIL %-18s -v broke the stdin path\n' "trace/stdin"
 fi
+
+
+# dec.sh is the point of the converters: the binary programs, driven in
+# decimal. Check one of each rather than restating the arithmetic tests.
+decs() { # decs NAME ARGS... EXPECTED (expected is the last argument)
+  local name=$1; shift
+  local want=${@: -1}; set -- "${@:1:$#-1}"
+  local got; got=$(./dec.sh "$@" 2>&1)
+  if [ "$got" = "$want" ]; then
+    pass=$((pass+1)); printf 'ok   %-18s %s\n' "$name" "$*"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s %s: want %s got %s\n' "$name" "$*" "$want" "$got"
+  fi
+}
+decs dec/add  add 1234 5678 '6912'
+decs dec/sub  sub 100 358   '-258'
+decs dec/mul  mul 37 41     '1517'
+decs dec/div  div 1234 56   '22 r 2'
+decs dec/sqrt sqrt 1234     '35 r 9'
+decs dec/gcd  gcd 1071 462  '21'
+decs dec/cmp  cmp 99 100    'lt'
 
 # The README quotes rw's instruction count, its size, and a per-phase
 # breakdown. Derive all three from the binary and the source rather than

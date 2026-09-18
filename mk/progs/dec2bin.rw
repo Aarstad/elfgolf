@@ -1,0 +1,66 @@
+# Decimal to binary.
+#
+#   rw progs/dec2bin.rw '<1234>'   ->   10011010010
+#
+# Halve the decimal number over and over, keeping the remainder each time.
+# The remainders come out least significant first, so each new bit has to land
+# to the left of the ones before it -- which is why the binary answer is built
+# on the right of the decimal, growing leftwards from the separator. The pass
+# that halves ends exactly where the next bit belongs, so handing it over is
+# one rule and nothing has to be carried anywhere.
+#
+#   [ decimal | binary ;
+#
+# P and Q walk the decimal left to right, which is the direction division
+# runs, carrying the remainder so far: P has none, Q has one to spend, worth
+# ten at the next digit down.
+
+<->[P
+>->|;
+
+# halving a digit with nothing carried in, and with ten carried in
+P0->0P
+P1->0Q
+P2->1P
+P3->1Q
+P4->2P
+P5->2Q
+P6->3P
+P7->3Q
+P8->4P
+P9->4Q
+Q0->5P
+Q1->5Q
+Q2->6P
+Q3->6Q
+Q4->7P
+Q5->7Q
+Q6->8P
+Q7->8Q
+Q8->9P
+Q9->9Q
+
+# the far end: what is left over is the next bit, and it goes straight into
+# the answer. R heads home to start the next pass.
+P|->R|0
+Q|->R|1
+
+0R->R0
+1R->R1
+2R->R2
+3R->R3
+4R->R4
+5R->R5
+6R->R6
+7R->R7
+8R->R8
+9R->R9
+
+# home again: shed any leading zero the halving left, stop if nothing is left
+[R0->[R
+[R|->[|
+[R->[P
+
+[|;->.0
+[|->
+;->.

@@ -1,0 +1,51 @@
+# Binary to decimal.
+#
+#   rw progs/bin2dec.rw '<10011010010>'   ->   1234
+#
+# Double the decimal number and add the next bit, most significant first.
+# Doubling carries leftwards, so the pass runs right to left through the
+# decimal -- and since the bits are taken most significant first, from the
+# left of the binary, the two active ends are the two sides of the separator.
+# Taking a bit and starting the pass is therefore one rule, with nothing
+# travelling anywhere.
+#
+#   [ decimal | binary ;
+#
+# M and N walk the decimal right to left: M has nothing to carry, N has a one.
+
+<->[|
+>->;
+
+# doubling a digit, with and without a carry coming in
+0M->M0
+1M->M2
+2M->M4
+3M->M6
+4M->M8
+5M->N0
+6M->N2
+7M->N4
+8M->N6
+9M->N8
+0N->M1
+1N->M3
+2N->M5
+3N->M7
+4N->M9
+5N->N1
+6N->N3
+7N->N5
+8N->N7
+9N->N9
+
+# out the top: a carry becomes a new leading digit
+[M->[
+[N->[1
+
+# take the next bit, and the doubling pass starts where it lands
+|0->M|
+|1->N|
+
+[|;->.0
+|;->
+[->.

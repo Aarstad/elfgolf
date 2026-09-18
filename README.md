@@ -99,6 +99,8 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `bindiv` | binary long division, quotient and remainder |
 | `binsqrt` | integer square root, digit by digit |
 | `bingcd` | greatest common divisor, Stein's algorithm |
+| `dec2bin` | decimal in |
+| `bin2dec` | decimal out |
 
 `tm.rw` is the Turing-completeness argument made concrete. State and head
 position live *in* the tape — the head marker sits just left of the cell being
@@ -347,6 +349,38 @@ mk/rw mk/progs/bingcd.rw '<1100,1000>'   # 100 — gcd 12 8 is 4
 
 Both operands must be nonzero. Checked against every pair up to 63 and random
 pairs to 4000. 64-bit operands still work; 96-bit runs out of fuel.
+
+`dec2bin.rw` and `bin2dec.rw` convert between the two. Everything above speaks
+binary, so without them the set is only usable by someone willing to convert by
+hand.
+
+Both are a single local pass, and for the same reason: the two regions are laid
+out so that the ends that are doing the work touch. Going in, the decimal is
+halved over and over and the remainders come out least significant first, so
+each new bit must land to the *left* of the ones before it — the binary answer
+is built on the right of the decimal, growing leftwards from the separator, and
+the halving pass ends exactly where the next bit belongs. Going out, the
+decimal is doubled and the next bit added, most significant first; doubling
+carries leftwards and the bits are taken from the left of the binary, so again
+the two active ends are the two sides of the separator. Neither program has a
+traveller in it. Nothing is carried anywhere.
+
+`mk/dec.sh` ties them to everything else — the binary programs, driven in
+decimal:
+
+```sh
+$ mk/dec.sh mul 37 41
+1517
+$ mk/dec.sh div 1234 56
+22 r 2
+$ mk/dec.sh sqrt 1234
+35 r 9
+$ mk/dec.sh gcd 1071 462
+21
+```
+
+Checked in both directions for every value below 4096, and round-tripped on
+random numbers up to 70 bits.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
