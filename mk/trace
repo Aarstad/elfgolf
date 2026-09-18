@@ -1,0 +1,109 @@
+#!/data/data/com.termux/files/usr/bin/env python3
+# trace [-f N] [-t SEC] PROG.rw [INPUT] -- count the rewrites in a run.
+#
+# `rw -v P I 2>&1 >/dev/null | wc -l` is the obvious way to do this and it is
+# how a runaway got left on the phone. The pipeline is the problem: it forces
+# a shell to stay and wait, and that shell, reparented to init when whatever
+# launched it dies, goes on shielding the run from rw's own death signal. So
+# do the counting here instead. With no pipe there is no shell to survive --
+# a lone command is exec'd by `sh -c`, not forked under it -- and this asks
+# the kernel for the same death signal rw does, in case it is run under one
+# anyway.
+#
+# The tape goes to stdout as rw writes it; the count and anything rw had to
+# say go to stderr.
+
+import ctypes, os, signal, subprocess, sys, tempfile, threading
+
+PR_SET_PDEATHSIG = 1
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def die_with_parent() -> None:
+    """Take rw's deal for ourselves: SIGKILL when our own parent goes."""
+    ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+
+
+def usage() -> None:
+    sys.exit("usage: trace [-f N] [-t SEC] PROG.rw [INPUT]")
+
+
+def main() -> int:
+    fuel = timeout = None
+    args = sys.argv[1:]
+    while args and args[0].startswith("-"):
+        flag = args.pop(0)
+        if flag in ("-f", "-t") and args:
+            try:
+                value = int(args.pop(0))
+            except ValueError:
+                usage()
+            if value <= 0:
+                usage()
+            fuel, timeout = (value, timeout) if flag == "-f" else (fuel, value)
+        else:
+            usage()
+    if not args or len(args) > 2:
+        usage()
+    prog, tape = args[0], args[1:]
+
+    die_with_parent()
+    if os.getppid() == 1:
+        # Already orphaned before we asked, so the signal is never coming.
+        return 1
+
+    cmd = [os.path.join(HERE, "rw"), "-v"]
+    if fuel is not None:
+        cmd += ["-f", str(fuel)]
+    cmd += [prog, *tape]
+
+    # rw writes the trace to stderr and the answer to stdout, and it writes
+    # the answer last. Counting the trace off a pipe while the answer waits
+    # in another would deadlock once that one filled, so land it in a file.
+    with tempfile.TemporaryFile() as answer:
+        proc = subprocess.Popen(cmd, stdout=answer, stderr=subprocess.PIPE,
+                                stdin=None if tape else sys.stdin)
+        expired = threading.Event()
+
+        def give_up() -> None:
+            expired.set()
+            proc.kill()
+
+        clock = threading.Timer(timeout, give_up) if timeout else None
+        if clock:
+            clock.daemon = True
+            clock.start()
+
+        # A trace line is "rule<TAB>tape"; every diagnostic rw has --  usage,
+        # cannot read program, out of fuel, tape overflow -- is tab-free. So
+        # the tab tells them apart, and a fuel stop does not count as a
+        # rewrite or get swallowed on the way past.
+        rewrites = 0
+        try:
+            for line in proc.stderr:     # streamed: a long trace is not held
+                if b"\t" in line:
+                    rewrites += 1
+                else:
+                    sys.stderr.buffer.write(line)
+        finally:
+            proc.stderr.close()
+            code = proc.wait()
+            if clock:
+                clock.cancel()
+
+        answer.seek(0)
+        sys.stdout.buffer.write(answer.read())
+        sys.stdout.buffer.flush()
+
+    if expired.is_set():
+        print(f"{rewrites} rewrites, stopped after {timeout}s", file=sys.stderr)
+        return 124
+    print(f"{rewrites} rewrites", file=sys.stderr)
+    return code
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

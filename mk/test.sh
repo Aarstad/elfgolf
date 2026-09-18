@@ -378,6 +378,66 @@ decs dec/sqrt sqrt 1234     '35 r 9'
 decs dec/gcd  gcd 1071 462  '21'
 decs dec/cmp  cmp 99 100    'lt'
 
+# trace counts the rewrites rw would have traced. The count has to match the
+# pipeline it replaces, the tape has to survive being carried through it, and
+# a run has to die with its launcher -- which is the whole reason it exists.
+tr_count() { # tr_count NAME PROG INPUT
+  local piped counted
+  piped=$(./rw -v "progs/$2" "$3" 2>&1 >/dev/null | grep -c "$(printf '\t')")
+  counted=$(./trace "progs/$2" "$3" 2>&1 >/dev/null | sed -n 's/ rewrites$//p')
+  if [ "$piped" = "$counted" ]; then
+    pass=$((pass+1)); printf 'ok   %-18s %s rewrites\n' "$1" "$counted"
+  else
+    fail=$((fail+1)); printf 'FAIL %-18s pipeline %s, trace %s\n' "$1" "$piped" "$counted"
+  fi
+}
+tr_count wrap/count     add.rw    '1111+111'
+tr_count wrap/count2   binadd.rw '<1011+1101>'
+tr_count wrap/count3   binmul.rw '<101*110>'
+
+got=$(./trace progs/binadd.rw '<1011+1101>' 2>/dev/null)
+want=$(./rw progs/binadd.rw '<1011+1101>' 2>/dev/null)
+if [ "$got" = "$want" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "wrap/tape" "$got"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s want %s got %s\n' "wrap/tape" "$want" "$got"
+fi
+
+# A fuel stop is rw's exit 2 and its message, not a rewrite and not silence.
+out=$(./trace -f 50 progs/spin.rw 'ab' 2>&1 >/dev/null); code=$?
+if [ "$code" = 2 ] && [ "$out" = "rw: out of fuel
+50 rewrites" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s exit 2, 50 rewrites\n' "wrap/fuel"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s exit %s, got %s\n' "wrap/fuel" "$code" "$(echo "$out" | tr '\n' '/')"
+fi
+
+# -t stops a run that fuel alone would leave going, and says so.
+./trace -t 2 -f 100000000 progs/spin.rw 'ab' >/dev/null 2>&1; code=$?
+if [ "$code" = 124 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s exit 124 after 2s\n' "wrap/timeout"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s want exit 124, got %s\n' "wrap/timeout" "$code"
+fi
+
+# The point of the wrapper: kill whatever launched it and nothing is left.
+# `sh -c` execs a lone command rather than forking, so no shell survives to
+# shield the run the way `rw -v ... | wc -l` did.
+python3 -c "
+import subprocess, time
+subprocess.Popen('./trace -f 100000000 progs/spin.rw ab', shell=True,
+                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(60)" & launcher=$!
+sleep 3
+kill -9 $launcher 2>/dev/null; sleep 3
+left=$(ps -eo args | grep -c "[s]pin.rw ab")
+if [ "$left" = 0 ]; then
+  pass=$((pass+1)); printf 'ok   %-18s nothing outlived the launcher\n' "wrap/orphan"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s %s process(es) survived\n' "wrap/orphan" "$left"
+  pkill -f "spin.rw ab"
+fi
+
 # The README quotes rw's instruction count, its size, and a per-phase
 # breakdown. Derive all three from the binary and the source rather than
 # trusting them. The phase boundaries are marked in rw.s itself

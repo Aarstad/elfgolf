@@ -237,6 +237,19 @@ stray process. The kernel only signals direct children, so an intervening shell
 that outlives its own parent — `sh -c '... | wc -l'`, reparented but alive —
 still shields the run.
 
+`mk/trace` closes that by making the pipeline unnecessary: it counts the trace
+itself, so there is no `wc` for a shell to sit and wait on, and it asks for the
+same death signal on its own account. `-t` caps the wall clock for a run whose
+fuel is the built-in hundred million.
+
+```sh
+mk/trace mk/progs/binadd.rw '<1011+1101>'  # -> 11000, and "28 rewrites" on stderr
+mk/trace -t 5 mk/progs/rw.rw "$tape"       # -> stops at five seconds, exit 124
+```
+
+The tape goes to stdout exactly as `rw` wrote it, so `trace` substitutes for
+`rw` in a pipe; the count, and anything `rw` had to say, go to stderr.
+
 `rw -f N` caps the run at `N` rewrites instead of the built-in `FUEL`. That is
 what makes a non-halting program cheap to assert: `spin.rw` never stops, and
 the test that says so wants the message, not a hundred million rewrites.
