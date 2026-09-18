@@ -1,0 +1,112 @@
+# Two colliding gliders, on rule110.rw's machine.
+#
+#   rw progs/collide.rw '!ooorooooooolooo>########' | tr / '\n' | tr orlx ' \\/|'
+#
+# Same architecture as rule110.rw -- a sweep marker carrying the left
+# neighbour, one traveller per cell, the new row assembling itself past the
+# old one -- with only the local rule different.
+#
+# Four cell states: o is vacuum, r a glider going right, l one going left, and
+# x the scar left where two of them met. Gliders move one cell per generation
+# and annihilate on contact, leaving x behind. x never moves and never decays,
+# so the collision is still legible when the diagram is done.
+#
+# The rule table below is generated from the transition function, not typed.
+!-><[
+>#->>.
+
+# travellers in flight. First, so a moving traveller freezes the sweep.
+To->oT
+Tr->rT
+Tl->lT
+Tx->xT
+T>->>T
+T.->o.
+Ro->oR
+Rr->rR
+Rl->lR
+Rx->xR
+R>->>R
+R.->r.
+Lo->oL
+Lr->rL
+Ll->lL
+Lx->xL
+L>->>L
+L.->l.
+Xo->oX
+Xr->rX
+Xl->lX
+Xx->xX
+X>->>X
+X.->x.
+
+# the sweep: "M c r" -> keep c, advance the marker, launch the new c.
+# P means the cell to the left was not a right-glider, Q means it was.
+Poo->oPTo
+Por->oPTr
+Pol->oPLl
+Pox->oPTx
+Pro->rQTo
+Prr->rQTr
+Prl->rQXl
+Prx->rQTx
+Plo->lPTo
+Plr->lPTr
+Pll->lPLl
+Plx->lPTx
+Pxo->xPXo
+Pxr->xPXr
+Pxl->xPXl
+Pxx->xPXx
+Qoo->oPRo
+Qor->oPRr
+Qol->oPXl
+Qox->oPRx
+Qro->rQRo
+Qrr->rQRr
+Qrl->rQXl
+Qrx->rQRx
+Qlo->lPXo
+Qlr->lPXr
+Qll->lPXl
+Qlx->lPXx
+Qxo->xPXo
+Qxr->xPXr
+Qxl->xPXl
+Qxx->xPXx
+
+# last cell of the row: the right neighbour is the boundary, which is vacuum
+Po>->oET>
+Pr>->rET>
+Pl>->lET>
+Px>->xEX>
+Qo>->oER>
+Qr>->rER>
+Ql>->lEX>
+Qx>->xEX>
+
+# row finished; K walks out to the counter to spend a generation
+E>->[K
+Ko->oK
+Kr->rK
+Kl->lK
+Kx->xK
+K.#->>.
+K.->V
+
+# counter empty: V walks home, tidying the scaffolding out of the output
+oV->Vo
+rV->Vr
+lV->Vl
+xV->Vx
+/V->V/
+[V->/V
+<V/->.
+<V->.
+
+# next generation. Below the V rules, or cleanup would start a fresh sweep.
+[o->/Po
+[r->/Pr
+[l->/Pl
+[x->/Px

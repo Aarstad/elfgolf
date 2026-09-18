@@ -157,6 +157,22 @@ check bin2dec/lead bin2dec.rw '<00001010>'  '10'
 # every carry in the doubling table gets used by a number with a 9 in it
 check bin2dec/nines bin2dec.rw '<1111011011>' '987'
 
+# the diagram in the README: two gliders converge, meet, and leave a scar
+check collide/glide collide.rw '!ooorooooooolooo>########' \
+  'ooorooooooolooo/ooooroooooloooo/ooooorooolooooo/ooooooroloooooo/oooooooxooooooo/oooooooxooooooo/oooooooxooooooo/oooooooxooooooo/oooooooxooooooo'
+check collide/right collide.rw '!rooo>###'   'rooo/oroo/ooro/ooor'
+check collide/left  collide.rw '!oool>###'   'oool/oolo/oloo/looo'
+# a glider that reaches the edge leaves: the boundary is vacuum, not a wall
+check collide/exitr collide.rw '!ooor>##'    'ooor/oooo/oooo'
+check collide/exitl collide.rw '!looo>##'    'looo/oooo/oooo'
+# adjacent gliders leave a two-cell scar, a gap of one leaves a single scar,
+# and a scar never moves or decays once made
+check collide/adj   collide.rw '!orlo>###'   'orlo/oxxo/oxxo/oxxo'
+check collide/gap   collide.rw '!rol>###'    'rol/oxo/oxo/oxo'
+check collide/scar  collide.rw '!oxo>##'     'oxo/oxo/oxo'
+# a glider running into an existing scar is absorbed by it
+check collide/eat   collide.rw '!roxo>###'   'roxo/orxo/ooxo/ooxo'
+
 check palin/empty  palin.rw   '<>'        'yes'
 check palin/one    palin.rw   '<a>'       'yes'
 check palin/even   palin.rw   '<abba>'    'yes'

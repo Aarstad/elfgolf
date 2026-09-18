@@ -90,6 +90,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `tm` | a Turing machine: the 3-state busy beaver |
 | `collatz` | the Collatz map in unary, iterated to 1 |
 | `rule110` | the elementary cellular automaton, with its space-time diagram |
+| `collide` | two gliders, and what is left where they meet |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
 | `binadd` | binary addition, a column at a time, carry and all |
@@ -381,6 +382,42 @@ $ mk/dec.sh gcd 1071 462
 
 Checked in both directions for every value below 4096, and round-tripped on
 random numbers up to 70 bits.
+
+`collide.rw` is `rule110.rw`'s machine with a different physics in it. The
+architecture is identical — a sweep marker carrying the left neighbour, one
+traveller per cell, the new row assembling itself past the old one — and only
+the local rule differs, which is why the machine is written separately from the
+rule it runs.
+
+Four cell states: `o` is vacuum, `r` a glider going right, `l` one going left,
+and `x` the scar where two of them met. Gliders move a cell per generation and
+annihilate on contact; `x` never moves and never decays, so the collision is
+still legible when the diagram is finished.
+
+```sh
+mk/rw mk/progs/collide.rw '!ooorooooooolooo>########' \
+  | tr / '\n' | tr orlx ' \\/|'
+```
+
+```
+   \       /
+    \     /
+     \   /
+      \ /
+       |
+       |
+       |
+       |
+       |
+```
+
+It also makes the invariant the other programs run on visible: one thing in
+flight at a time is here a property of the physics rather than of the rule
+order, since two pulses in one place is exactly what `x` records.
+
+Its rule table is generated from the transition function rather than typed,
+and checked against an independent implementation over every arrangement of
+the four states up to fifteen cells wide.
 
 `palin.rw` is the ordering discipline in miniature. With no
 random access and no variables in the rules, the check has to eat the string
