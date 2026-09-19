@@ -1,0 +1,53 @@
+# Reverse a string over {A,B,C,D}. Markov's own algorithm, not a new one.
+#
+#   rw progs/m10.rw 'ABCD'   ->  DCBA
+#
+# This is Algorithm M10 from Nick Cercone's CSE6390 notes on Markov (normal)
+# algorithms, transcribed rule for rule. The notes write it as five production
+# schemas over an unspecified alphabet:
+#
+#   M101: [conclusive]  §b  -> .        (b is the marker beta)
+#   M102:               §db -> bd
+#   M103:               §df -> f§d
+#   M104:               §d  -> bd
+#   M105:               W   -> §        (W is the empty word)
+#
+# where d and f range over the alphabet. rw has no variables, so each schema
+# is written out once per symbol -- M103 costs |A|^2 rules, which is why the
+# alphabet is four letters and not twenty-six. § is $ here and beta is @.
+#
+# M105 is Markov's empty word: it matches before the first symbol, so it
+# prepends, and it always applies. That is why it is last -- it is the rule
+# that runs when nothing else can, and the conclusive M101 is what stops the
+# algorithm rather than running out of applicable rules.
+#
+# The method: $ walks rightwards through the untouched suffix (M103) carrying
+# one symbol with it, drops it at the boundary @ (M102) or makes a boundary if
+# there is not one yet (M104), and M105 starts the next pass. The notes trace
+# ABCD to DCBA in sixteen steps; test.sh asserts that trace.
+$@->.
+$A@->@A
+$B@->@B
+$C@->@C
+$D@->@D
+$AA->A$A
+$AB->B$A
+$AC->C$A
+$AD->D$A
+$BA->A$B
+$BB->B$B
+$BC->C$B
+$BD->D$B
+$CA->A$C
+$CB->B$C
+$CC->C$C
+$CD->D$C
+$DA->A$D
+$DB->B$D
+$DC->C$D
+$DD->D$D
+$A->@A
+$B->@B
+$C->@C
+$D->@D
+->$

@@ -70,6 +70,25 @@ brackets its own brackets until the tape overflows. Terminal rules add no
 computational power — they add the ability to stop while the tape still
 matches, which is what "the first occurrence" needs.
 
+A rule with an empty left-hand side is Markov's *empty word*. He defines the
+empty string as occurring *n+1* times in an *n*-symbol string — before the first
+symbol, between each adjacent pair, and after the last — so its leftmost
+occurrence is position zero and `->$` prepends a `$`. It always applies, which
+makes it a last resort by construction: put it anywhere but last and nothing
+below it ever runs. It also means the program can never halt for want of a
+match, so something else has to stop it — in `m10.rw`, a terminal rule.
+
+`m10.rw` is Markov's own reversal algorithm, taken rule for rule from [Cercone's
+CSE6390 notes][markov] and kept honest by `markov/m10-trace`, which asserts not
+just `ABCD -> DCBA` but the sixteen-step trace the notes print for it. Rules
+there are *schemas* — `§δƒ -> ƒ§δ` with `δ` and `ƒ` ranging over the alphabet —
+and `rw` has no variables, so each schema is written out once per symbol and
+that one costs |A|² rules. The schemas are notation, not power: over a finite
+alphabet they always expand. The empty word is not, which is why it is in the
+interpreter.
+
+[markov]: https://wiki.eecs.yorku.ca/course_archive/2011-12/F/4403/_media/markov.pdf
+
 Two front ends. `rw` is an interpreter — it reads a `.rw` rule file and takes
 the tape as an argument or on stdin:
 
@@ -102,6 +121,7 @@ mk/build.sh /tmp/add '111+11' '1+->+1' '+->'
 | `padd` | addition with the operands interleaved, and what that saves |
 | `first` | brackets the first `101` and stops — one terminal rule |
 | `palin` | palindrome over `{a,b}`, eaten from both ends |
+| `m10` | Markov's own reversal algorithm, transcribed from the notes |
 | `rw` | rw itself: a rewriter interpreting a rewriter |
 | `enc` | source alphabet in, `{0,1,2}` out, for `rw.rw` |
 | `binadd` | binary addition, a column at a time, carry and all |
@@ -726,19 +746,19 @@ survived by accident.
 
 ### The interpreter, by the instruction
 
-`rw` is 260 aarch64 instructions in 2928 bytes, static, with no libc — no
+`rw` is 259 aarch64 instructions in 2920 bytes, static, with no libc — no
 `INTERP`, no `DYNAMIC`, no dynamic symbols, five raw syscalls.
 
 | | |
 |---:|---|
 |   4 | ask the kernel to kill us when our parent dies |
 |  97 | read argv, parse the flags, open the program, load the tape |
-|  38 | parse a rule: line, comment, arrow, terminal dot |
+|  37 | parse a rule: line, comment, arrow, terminal dot |
 |  20 | search the tape for the lhs |
 |  40 | splice: shift the tape, write the rhs |
 |  24 | trace one rewrite to stderr (-v) |
 |  37 | emit, fuel, overflow, usage, exit |
-| **260** | **total** |
+| **259** | **total** |
 
 The lopsided figure is still the search: twenty instructions are the whole
 matching engine, against ninety-seven to get the arguments in. The splice is where the real work is, because it has to grow

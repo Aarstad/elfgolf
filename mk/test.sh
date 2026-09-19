@@ -378,6 +378,58 @@ decs dec/sqrt sqrt 1234     '35 r 9'
 decs dec/gcd  gcd 1071 462  '21'
 decs dec/cmp  cmp 99 100    'lt'
 
+# Markov's empty word: an empty lhs matches before the first symbol, so it
+# prepends and it always applies. Being always applicable, it must not preempt
+# a rule above it, and it must not be what stops the algorithm.
+printf -- '->x\n' > "$tmp"
+got=$(./rw -f 3 "$tmp" 'AB' 2>/dev/null)
+if [ "$got" = "xxxAB" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "markov/word" "$got"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s want xxxAB got %s\n' "markov/word" "$got"
+fi
+
+printf -- 'A->B\n->x\n' > "$tmp"
+got=$(./rw -f 1 "$tmp" 'A' 2>/dev/null)
+if [ "$got" = "B" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s\n' "markov/word-order" "$got"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s want B got %s\n' "markov/word-order" "$got"
+fi
+
+# M10 is Cercone's reversal algorithm transcribed rule for rule, so the notes
+# are the oracle: the answer and, step for step, the trace they print for
+# ABCD. A rule that fired in a different order would still reverse the string,
+# so checking the trace is what says it is his algorithm and not merely one.
+check markov/m10 m10.rw 'ABCD' 'DCBA'
+got=$(./rw -v progs/m10.rw 'ABCD' 2>&1 >/dev/null)
+want=$(cat <<'TRACE'
+->$	$ABCD
+$AB->B$A	B$ACD
+$AC->C$A	BC$AD
+$AD->D$A	BCD$A
+$A->@A	BCD@A
+->$	$BCD@A
+$BC->C$B	C$BD@A
+$BD->D$B	CD$B@A
+$B@->@B	CD@BA
+->$	$CD@BA
+$CD->D$C	D$C@BA
+$C@->@C	D@CBA
+->$	$D@CBA
+$D@->@D	@DCBA
+->$	$@DCBA
+$@->.	DCBA
+TRACE
+)
+if [ "$got" = "$want" ]; then
+  pass=$((pass+1)); printf 'ok   %-18s %s steps, as the notes print them\n' \
+    "markov/m10-trace" "$(printf '%s\n' "$want" | wc -l | tr -d ' ')"
+else
+  fail=$((fail+1)); printf 'FAIL %-18s trace differs from the notes\n' "markov/m10-trace"
+  diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/       /'
+fi
+
 # trace counts the rewrites rw would have traced. The count has to match the
 # pipeline it replaces, the tape has to survive being carried through it, and
 # a run has to die with its launcher -- which is the whole reason it exists.

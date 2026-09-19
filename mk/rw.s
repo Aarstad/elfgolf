@@ -11,6 +11,8 @@
 //   PROG:  one rule per line, "lhs->rhs"; lines starting with '#' ignored
 //   term:  "lhs->.rhs" is a terminal rule -- it rewrites once and halts,
 //          whether or not anything still matches
+//   word:  an empty lhs is Markov's empty word: it matches before the first
+//          symbol, so "->x" prepends x and always applies -- put it last
 //   run:   scan rules top-down; first rule whose lhs occurs in the tape
 //          rewrites its leftmost occurrence, then scanning restarts.
 
@@ -174,8 +176,13 @@ _start:
 .Lsep2: add     x11, x11, #1
         b       .Lsep1
 
-.Lgot:  sub     x23, x11, x21             // llen
-        cbz     x23, .Lnext
+.Lgot:  sub     x23, x11, x21             // llen, zero for Markov's empty word:
+                                          // it occurs n+1 times in an n-symbol
+                                          // tape and its leftmost occurrence is
+                                          // before the first symbol, so an empty
+                                          // lhs matches at 0 and the rhs is a
+                                          // prepend. the search falls out of
+                                          // .Lcmp at once when x23 is zero.
         mov     x16, x10                  // line end, for -v: the splice eats x10
         add     x24, x11, #2              // rhs
         sub     x25, x10, x24             // rlen
