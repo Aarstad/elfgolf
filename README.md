@@ -811,3 +811,40 @@ frame against an independent Python model of the same plasma. With
 frames to `/dev/null`:* 26 ms of user time in total, about 0.2 ms per 80×48
 frame. Nearly all of the wall-clock time is the 1/60 s sleep, and on a real
 tty the terminal's parse rate sets the pace.
+
+### life — the same framebuffer, sent as a delta
+
+A plasma is the worst case for a delta. Every term moves with `t`, so 99.4%
+of cells change every frame and diffing saves nothing (*calculated*, from
+`check.py`'s model). `px/life.s` is a scene built for a delta: Conway's Life,
+one cell per pixel, on a torus the size of the terminal. A cell takes the
+palette's colour of the generation it is born in and keeps it until it dies.
+So the block only changes where something is born or dies, and still lifes
+keep older colours. Every 32 generations a random 12×12 patch of new life lands somewhere,
+so the board never settles into nothing but still lifes.
+
+```sh
+px/life               # Ctrl-C to quit; px/life 500 7 for 500 frames of seed 7
+```
+
+The scanout keeps a copy of what it last sent, cell by cell. A run of unchanged cells
+becomes one `\e[nC`, and a colour the previous cell already set is not set
+again. A cell whose two pixels match is sent as a space with only a background
+colour: one glyph byte instead of three, and one colour instead of two.
+
+`px/life_check.py` runs a seeded `life`, plays the stream through a
+small terminal emulator, and holds the screen after every frame against an
+independent Python Life. It also computes what each frame would have cost
+sent whole, and asserts that figure against the real first frame, which is a
+whole frame. Over 1000 frames each of seeds 1, 99 and 12345, every frame matches,
+and the delta sends 43.2%, 43.8% and 43.7% of the whole-frame bytes:
+about 4.3 KB a frame against 10 KB, and against the plasma's 69.4.
+
+That is about 2.3×, not the 10–50× guessed before measuring. Life with rain
+is busier than it looks: 11.7% of cells change per frame. A changed cell is
+expensive, at 19.9 bytes each: 2.2 for the glyph, 2.1 for the cursor skip,
+and 15.3 for colour. The space cell made whole frames 31% smaller, against 14%
+for delta frames. Dead areas are where pixel pairs match, while a delta frame is
+mostly the scattered edges where things are being born and dying. So the ratio
+rose even as the delta shrank. Colour is still what to shrink next, and that
+means shorter numbers, not fewer of them.

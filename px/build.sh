@@ -1,4 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# build.sh -- assemble px next to its source
+# build.sh -- assemble px and life next to their sources
 D="$(command dirname "$0")"
-clang -nostdlib -static -Wl,--build-id=none -o "$D/px" "$D/px.s"
+for p in px life; do
+  clang -nostdlib -static -Wl,--build-id=none -o "$D/$p" "$D/$p.s" || exit
+done
