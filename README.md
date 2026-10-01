@@ -779,3 +779,35 @@ notice, since it does not change.
 overflow. The Rule 110 cases were checked against an independent
 implementation over 46 random widths and generation counts before being
 frozen into the suite.
+
+## px/ — a framebuffer you can look at
+
+The question was whether a phone lets you walk one contiguous block of RAM in
+assembly and syscall it onto the screen in a loop. Without root it does not,
+directly: SurfaceFlinger owns the display, and its buffers come through Binder.
+The terminal does, though. `px` treats it as the display controller.
+
+```sh
+px/build.sh && px/px          # Ctrl-C to quit; px/px 300 for 300 frames
+```
+
+The frame is a `W × H` block of `0x00BBGGRR` words in `.bss`: `W` is the
+terminal's column count and `H` is twice its row count, re-read with `TIOCGWINSZ` every
+frame. Each frame has two passes over that block. The render pass writes a plasma. The
+scanout pass turns each vertical pixel pair into one `▀` cell, with the
+foreground set to the upper pixel and the background to the lower one, in 24-bit colour. Then
+one `write(2)` sends the whole frame. Five syscalls in total: `ioctl`, `write`,
+`nanosleep`, `rt_sigaction`, `exit`.
+
+There's no float and no libm. The sine table comes from Minsky's circle
+algorithm, `s += e·c; c -= e·s`, in 16.16 fixed point with `e = 1608/65536`, so
+the period is 256 steps to within a hair. Decimal output is a 256-entry table
+of `"n;"` strings with each length stored alongside, so a colour channel costs one load,
+one store and one add.
+
+`px/check.py` decodes the escape stream back into pixels and compares every
+frame against an independent Python model of the same plasma. With
+`python3 px/check.py 40` all 40 frames match exactly. *Calculated, from one run of 120
+frames to `/dev/null`:* 26 ms of user time in total, about 0.2 ms per 80×48
+frame. Nearly all of the wall-clock time is the 1/60 s sleep, and on a real
+tty the terminal's parse rate sets the pace.
